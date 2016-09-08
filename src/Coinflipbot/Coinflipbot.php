@@ -20,7 +20,10 @@ namespace Coinflipbot;
 
 use Halfpastfour\Reddit\Interfaces\Bot;
 use Halfpastfour\Reddit\Reddit;
+use LukeNZ\Reddit\TokenStorageMethod;
 use Zend\Config\Config;
+use Zend\Db\Adapter\Adapter;
+use Zend\Db\Sql\Sql;
 
 /**
  * Class Coinflipbot
@@ -32,6 +35,11 @@ class Coinflipbot implements Bot
 	 * @var Config|null
 	 */
 	private $config;
+
+	/**
+	 * @var Adapter
+	 */
+	private $dbAdapter;
 
 	/**
 	 * @var Reddit
@@ -64,6 +72,10 @@ class Coinflipbot implements Bot
 	 */
 	public function init()
 	{
+		print( "Initializing.\n" );
+		// Set up db adapter
+		$this->dbAdapter	= new Adapter( $this->config->db->toArray() );
+
 		// Set up the reddit client
 		$this->reddit = new Reddit(
 			$this->config->reddit->account->username,
@@ -71,9 +83,61 @@ class Coinflipbot implements Bot
 			$this->config->reddit->client->id,
 			$this->config->reddit->client->secret
 		);
+		$this->reddit->setTokenStorageMethod( TokenStorageMethod::File, 'phpreddit:token', 'reddit.token' );
 		$this->reddit->setUserAgent( $this->config->info->description );
 
 		return $this;
+	}
+
+	/**
+	 * Should execute the logic performing the bot's job.
+	 *
+	 * @return Bot
+	 */
+	public function run()
+	{
+		print( "Running.\n" );
+		$subreddits	= $this->config->reddit->subreddit->toArray();
+		$comment	= $this->getLastParsedCommentName();
+		$comments	= $this->reddit->getComments(
+			implode( '+', $subreddits ),
+			$this->config->reddit->limit->max_comments,
+			$comment
+		);
+
+		foreach( $this->searchComments( $comments, $this->config->reddit->trigger ) as $comment ) {
+			if( !$this->hasReplied( $comment ) ) {
+				$this->replyWithFlip( $comment );
+			}
+		}
+
+		return $this;
+	}
+
+	/**
+	 * Should shut down all activity or open connections and should be the last method to be executed.
+	 *
+	 * @return Bot
+	 */
+	public function shutdown()
+	{
+		print( "Shutting down.\n" );
+		return $this;
+	}
+
+	/**
+	 * @param array $p_aComment
+	 *
+	 * @return bool
+	 */
+	protected function hasParsed( array $p_aComment )
+	{
+		$statement	= new Sql( $this->dbAdapter );
+		$select	= $statement->select()->from( 'comments__parsed' )->where( 'comment_name = :comment_name' );
+		$result	= $statement->prepareStatementForSqlObject( $select )->execute( array(
+			':comment_name'	=> strval( $p_aComment['data']['name'] )
+		) );
+		return $result->count() > 0;
 	}
 
 	/**
@@ -83,7 +147,12 @@ class Coinflipbot implements Bot
 	 */
 	protected function hasReplied( array $p_aComment )
 	{
-		return in_array( $p_aComment['data']['name'], $this->replied );
+		$statement	= new Sql( $this->dbAdapter );
+		$select	= $statement->select()->from( 'comments__replied' )->where( 'comment_name = :comment_name' );
+		$result	= $statement->prepareStatementForSqlObject( $select )->execute( array(
+			':comment_name'	=> strval( $p_aComment['data']['name'] )
+		) );
+		return $result->count() > 0;
 	}
 
 	/**
@@ -93,13 +162,18 @@ class Coinflipbot implements Bot
 	 */
 	public function replyWithFlip( array $p_aComment )
 	{
+		// Generate flip: 0 is tails, 1 is heads.
 		$flip    = rand( 0, 1 );
+
+		// Reply to the comment
 		$result  = $flip ? 'heads' : 'tails';
 		$message = "Hey there, /u/{$p_aComment['data']['author']}! I flipped a coin for you and the result was: "
 			. "{$result}.";
 
-		if( $this->reddit->comment( $p_aComment['data']['name'], $message ) ) {
-			$this->replied[] = $p_aComment['data']['name'];
+		$success	= $this->reddit->comment( $p_aComment['data']['name'], $message );
+		if( $success ) {
+			// Save reply to database
+			$this->saveFlipToDatabase( $p_aComment, $flip, $message );
 		}
 
 		return $this;
@@ -117,41 +191,79 @@ class Coinflipbot implements Bot
 	{
 		$hits = [ ];
 		foreach( $p_aComments as $index => $commentData ) {
-			$comment = $commentData['data'];
+			$comment	= $commentData['data'];
+			$hit		= 0;
+			// Skip this comment if it has already been parsed before
+			if( $this->hasParsed( $commentData ) ) continue;
+
 			if( strpos( $comment['body'], strval( $p_sNeedle ) ) !== false ) {
 				$hits[] = $commentData;
+				$hit	= 1;
 			}
+			$this->saveParsedComment( $commentData, $hit );
 		}
 
 		return $hits;
 	}
 
 	/**
-	 * Should execute the logic performing the bot's job.
+	 * @param array $p_aCommentData
+	 * @param       $p_bHit
 	 *
-	 * @return Bot
+	 * @return Coinflipbot
 	 */
-	public function run()
+	protected function saveParsedComment( array $p_aCommentData, $p_bHit )
 	{
-		$comments = $this->reddit->getComments( 'coinflipbot', 100 );
-
-		foreach( $this->searchComments( $comments, '+/u/coinflipbot' ) as $comment ) {
-			if( !$this->hasReplied( $comment ) ) {
-				$this->replyWithFlip( $comment );
-			}
-		}
+		$sql	= new Sql( $this->dbAdapter );
+		$insert	= $sql->insert( 'comments__parsed' )
+			->values( [
+				'comment_name'	=> $p_aCommentData['data']['name'],
+				'timestamp'		=> time(),
+				'hit'			=> intval( $p_bHit )
+			] );
+		$selectString	= $sql->buildSqlString( $insert );
+		$this->dbAdapter->query( $selectString, Adapter::QUERY_MODE_EXECUTE );
 
 		return $this;
 	}
 
 	/**
-	 * Should shut down all activity or open connections and should be the last method to be executed.
+	 * @param array $p_aComment
+	 * @param       $p_iFlip
+	 * @param       $p_sMessage
 	 *
-	 * @return Bot
+	 * @return Coinflipbot
 	 */
-	public function shutdown()
+	protected function saveFlipToDatabase( array $p_aComment, $p_iFlip, $p_sMessage )
 	{
-		// TODO: Implement shutdown() method.
+		$sql	= new Sql( $this->dbAdapter );
+		$insert	= $sql->insert( 'comments__replied' )
+			->values( [
+				'comment_name'		=> $p_aComment['data']['name'],
+				'timestamp'			=> time(),
+				'flip'				=> intval( $p_iFlip ),
+				'user'				=> $p_aComment['data']['author'],
+				'subreddit_name'	=> $p_aComment['data']['subreddit'],
+				'post_name'			=> $p_aComment['data']['link_id'],
+				'post_title'		=> $p_aComment['data']['link_title'],
+				'url'				=> $p_aComment['data']['link_url'],
+				'reply'				=> strval( $p_sMessage ),
+			] );
+		$selectString	= $sql->buildSqlString( $insert );
+		$this->dbAdapter->query( $selectString, Adapter::QUERY_MODE_EXECUTE );
+
 		return $this;
+	}
+
+	/**
+	 * @return string|null
+	 */
+	protected function getLastParsedCommentName()
+	{
+		$statement	= new Sql( $this->dbAdapter );
+		$select	= $statement->select()->from( 'comments__parsed' )->order( 'id DESC' )->limit( 1 );
+		$result	= $statement->prepareStatementForSqlObject( $select )->execute();
+
+		return $result->count() ? $result->current()['comment_name'] : null;
 	}
 }

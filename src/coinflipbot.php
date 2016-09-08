@@ -24,7 +24,8 @@ require __DIR__ . '/../vendor/autoload.php';
 require __DIR__ . '/Halfpastfour/Autoload.php';
 Halfpastfour\Autoload::register( __DIR__ );
 
-$bot = new \Coinflipbot\Coinflipbot;
+$bot	= new \Coinflipbot\Coinflipbot;
 $bot->setConfig( \Zend\Config\Factory::fromFile( __DIR__ . '/config.ini', true ) )
 	->init()
-	->run();
+	->run()
+	->shutdown();

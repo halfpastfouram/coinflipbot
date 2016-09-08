@@ -36,26 +36,36 @@ class Reddit extends \LukeNZ\Reddit\Reddit
 	 *
 	 * @return string
 	 */
-	public function httpRequest($method, $url, $body = null) {
-		$tokenReflectionMethod	= new \ReflectionMethod( parent::class, 'getRedditToken' );
-		$tokenReflectionMethod->setAccessible( true );
-		$tokenReflectionMethod->invoke( $this );
+	public function httpRequest( $method, $url, $body = null )
+	{
+		try {
+			$tokenReflectionMethod	= new \ReflectionMethod( parent::class, 'getRedditToken' );
+			$tokenReflectionMethod->setAccessible( true );
+			$tokenReflectionMethod->invoke( $this );
 
-		$headersReflectionMethod	= new \ReflectionMethod( parent::class, 'getHeaders' );
-		$headersReflectionMethod->setAccessible( true );
+			$headersReflectionMethod	= new \ReflectionMethod( parent::class, 'getHeaders' );
+			$headersReflectionMethod->setAccessible( true );
 
-		$headersAndBody	= [
-			'headers' => $headersReflectionMethod->invoke( $this )
-		];
+			$headersAndBody	= [
+				'headers' => $headersReflectionMethod->invoke( $this )
+			];
 
-		if( !is_null( $body ) ) {
-			$headersAndBody['form_params']	= $body;
+			if( !is_null( $body ) ) {
+				$headersAndBody['form_params']	= $body;
+			}
+
+			// Perform the request and return the response
+			/** @var \GuzzleHttp\Psr7\Response $result */
+			$result			= $this->client->{$method}(Reddit::OAUTH_URL . $url, $headersAndBody);
+			$returnValue	= $result->getBody()->getContents();
+		} catch( \Exception $exception ) {
+			// A problem occurred
+			// @TODO: Log exceptions
+			print( $exception->getMessage() . "\n" );
+			print( $exception->getTraceAsString() . "\n" );
+			$returnValue	= null;
 		}
-
-		// Perform the request and return the response
-		/** @var \GuzzleHttp\Psr7\Response $result */
-		$result	= $this->client->{$method}(Reddit::OAUTH_URL . $url, $headersAndBody);
-		return $result->getBody()->getContents();
+		return $returnValue;
 	}
 
 	/**
@@ -83,7 +93,7 @@ class Reddit extends \LukeNZ\Reddit\Reddit
 	public function getComments( $p_mSubreddit, $p_iLimit = 100, $p_sAfter = null, $p_sBefore = null )
 	{
 		if( !is_array( $p_mSubreddit ) ) {
-			$subreddits	= array( strval( $p_mSubreddit ) );
+			$subreddits	= [ strval( $p_mSubreddit ) ];
 		} else {
 			$subreddits	= $p_mSubreddit;
 			array_walk( $subreddits, 'strval' );
@@ -93,10 +103,12 @@ class Reddit extends \LukeNZ\Reddit\Reddit
 		$permalink	= 'r/' . implode( '+', $subreddits ) . '/comments.json?limit=' . intval( $p_iLimit );
 		if( $p_sAfter ) $permalink .= '&after=' . strval( $p_sAfter );
 		if( $p_sBefore ) $permalink .= '&before=' . strval( $p_sBefore );
-
 		$response	= $this->httpRequest( HttpMethod::GET, $permalink );
-
-		return json_decode( $response, true )['data']['children'];
+		if( $response ) {
+			return json_decode( $response, true )['data']['children'];
+		} else {
+			return [];
+		}
 	}
 
 	/**
@@ -115,6 +127,10 @@ class Reddit extends \LukeNZ\Reddit\Reddit
 			'api_type'	=> 'json',
 		] );
 
-		return $response && isset( $response['json']['data']['data'] ) ? $response['json']['data']['data'] : null;
+		$result	= json_decode( $response, true );
+
+		return $response && isset( $result['json']['data']['things'][0]['data'] )
+			? $result['json']['data']['things'][0]['data']
+			: null;
 	}
 }
