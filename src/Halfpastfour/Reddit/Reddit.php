@@ -133,4 +133,24 @@ class Reddit extends \LukeNZ\Reddit\Reddit
 			? $result['json']['data']['things'][0]['data']
 			: null;
 	}
+
+	/**
+	 * Return an array with the names of the moderators of the given subreddit.
+	 *
+	 * @param string $p_sSubreddit
+	 *
+	 * @return array|null
+	 */
+	public function getModsFromSubreddit( $p_sSubreddit )
+	{
+		$response	= $this->httpRequest( HttpMethod::GET, "r/{$p_sSubreddit}/about/moderators.json", [
+			'api_type'	=> 'json',
+		] );
+
+		$result	= json_decode( $response, true );
+
+		return $response && isset( $result['data']['children'] )
+			? array_column( $result['data']['children'], 'name' )
+			: null;
+	}
 }
