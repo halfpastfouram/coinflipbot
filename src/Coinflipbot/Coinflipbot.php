@@ -183,7 +183,7 @@ class Coinflipbot implements Bot
 	 * Search comment body for given needle and return only those that have the needle.
 	 *
 	 * @param array $p_aComments
-	 * @param       $p_sNeedle
+	 * @param mixed $p_mNeedle
 	 *
 	 * @return array
 	 */
