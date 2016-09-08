@@ -60,8 +60,9 @@ class Reddit extends \LukeNZ\Reddit\Reddit
 			$returnValue	= $result->getBody()->getContents();
 		} catch( \Exception $exception ) {
 			// A problem occurred
-			// @TODO: Log exceptions
+			print( "EXCEPTION CAUGHT:\n" );
 			print( $exception->getMessage() . "\n" );
+			print( "STACK TRACE:\n" );
 			print( $exception->getTraceAsString() . "\n" );
 			$returnValue	= null;
 		}
@@ -95,8 +96,7 @@ class Reddit extends \LukeNZ\Reddit\Reddit
 		if( !is_array( $p_mSubreddit ) ) {
 			$subreddits	= [ strval( $p_mSubreddit ) ];
 		} else {
-			$subreddits	= $p_mSubreddit;
-			array_walk( $subreddits, 'strval' );
+			$subreddits	= array_map( 'strval', $p_mSubreddit );
 		}
 
 		// Create the permalink

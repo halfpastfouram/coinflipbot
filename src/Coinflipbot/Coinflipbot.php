@@ -84,7 +84,7 @@ class Coinflipbot implements Bot
 			$this->config->reddit->client->secret
 		);
 		$this->reddit->setTokenStorageMethod( TokenStorageMethod::File, 'phpreddit:token', 'reddit.token' );
-		$this->reddit->setUserAgent( $this->config->info->description );
+		$this->reddit->setUserAgent( "{$this->config->info->description} {$this->config->info->version}"  );
 
 		return $this;
 	}
@@ -98,14 +98,12 @@ class Coinflipbot implements Bot
 	{
 		print( "Running.\n" );
 		$subreddits	= $this->config->reddit->subreddit->toArray();
-		$comment	= $this->getLastParsedCommentName();
 		$comments	= $this->reddit->getComments(
-			implode( '+', $subreddits ),
-			$this->config->reddit->limit->max_comments,
-			$comment
+			$subreddits,
+			$this->config->reddit->limit->max_comments
 		);
 
-		foreach( $this->searchComments( $comments, $this->config->reddit->trigger ) as $comment ) {
+		foreach( $this->searchComments( $comments, $this->config->reddit->trigger->toArray() ) as $comment ) {
 			if( !$this->hasReplied( $comment ) ) {
 				$this->replyWithFlip( $comment );
 			}
@@ -122,6 +120,7 @@ class Coinflipbot implements Bot
 	public function shutdown()
 	{
 		print( "Shutting down.\n" );
+
 		return $this;
 	}
 
@@ -133,10 +132,11 @@ class Coinflipbot implements Bot
 	protected function hasParsed( array $p_aComment )
 	{
 		$statement	= new Sql( $this->dbAdapter );
-		$select	= $statement->select()->from( 'comments__parsed' )->where( 'comment_name = :comment_name' );
-		$result	= $statement->prepareStatementForSqlObject( $select )->execute( array(
+		$select		= $statement->select()->from( 'comments__parsed' )->where( 'comment_name = :comment_name' );
+		$result		= $statement->prepareStatementForSqlObject( $select )->execute( array(
 			':comment_name'	=> strval( $p_aComment['data']['name'] )
 		) );
+
 		return $result->count() > 0;
 	}
 
@@ -187,8 +187,9 @@ class Coinflipbot implements Bot
 	 *
 	 * @return array
 	 */
-	protected function searchComments( array $p_aComments, $p_sNeedle )
+	protected function searchComments( array $p_aComments, $p_mNeedle )
 	{
+		$needles	= !is_array( $p_mNeedle ) ? array( $p_mNeedle ) : $p_mNeedle;
 		$hits = [ ];
 		foreach( $p_aComments as $index => $commentData ) {
 			$comment	= $commentData['data'];
@@ -196,9 +197,12 @@ class Coinflipbot implements Bot
 			// Skip this comment if it has already been parsed before
 			if( $this->hasParsed( $commentData ) ) continue;
 
-			if( strpos( $comment['body'], strval( $p_sNeedle ) ) !== false ) {
-				$hits[] = $commentData;
-				$hit	= 1;
+			foreach( $needles as $needle ) {
+				if( strpos( $comment['body'], strval( $needle ) ) !== false ) {
+					$hits[] = $commentData;
+					$hit    = 1;
+					break;
+				}
 			}
 			$this->saveParsedComment( $commentData, $hit );
 		}
