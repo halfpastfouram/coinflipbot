@@ -212,7 +212,7 @@ class Coinflipbot implements Bot
 	 */
 	protected function commentIsFromSubredditMod( array $p_aComment )
 	{
-		if( $mods = $this->reddit->getModsFromSubreddit( $p_aComment['data']['subreddit'] ) ) {
+		if( $mods = $this->reddit->subreddit( $p_aComment['data']['subreddit'] )->getMods() ) {
 			return in_array( $p_aComment['data']['author'], $mods );
 		}
 		return false;
@@ -434,7 +434,7 @@ class Coinflipbot implements Bot
 		) . "\n\n---\n\n{$this->config->reddit->response->footer}";
 
 		if( $this->reddit->comment( $p_aComment['data']['name'], $message ) ) {
-			$this->saveReply( $p_aComment, null, 1, $message );
+			$this->saveReply( $p_aComment, null, 0, $message );
 		}
 
 		return $this;
