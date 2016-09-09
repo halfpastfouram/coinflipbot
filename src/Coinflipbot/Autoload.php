@@ -16,11 +16,11 @@
  * along with halfpastfour/coinflipbot.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-namespace Halfpastfour;
+namespace Coinflipbot;
 
 /**
  * Class Autoload
- * @package Halfpastfour
+ * @package Coinflipbot
  */
 class Autoload
 {

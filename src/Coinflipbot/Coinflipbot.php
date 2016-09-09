@@ -20,7 +20,8 @@ namespace Coinflipbot;
 
 use Halfpastfour\Reddit\Interfaces\Bot;
 use Halfpastfour\Reddit\Reddit;
-use LukeNZ\Reddit\TokenStorageMethod;
+use Halfpastfour\Reddit\TokenStorageMethod;
+use PDOException;
 use Zend\Config\Config;
 use Zend\Db\Adapter\Adapter;
 use Zend\Db\Sql\Sql;
@@ -87,7 +88,7 @@ class Coinflipbot implements Bot
 			$this->config->reddit->client->id,
 			$this->config->reddit->client->secret
 		);
-		$this->reddit->setTokenStorageMethod( TokenStorageMethod::File, 'phpreddit:token', 'reddit.token' );
+		$this->reddit->setTokenStorageMethod( TokenStorageMethod::FILE, 'phpreddit:token', 'reddit.token' );
 		$this->reddit->setUserAgent( "{$this->config->info->description} {$this->config->info->version}"  );
 
 		return $this;

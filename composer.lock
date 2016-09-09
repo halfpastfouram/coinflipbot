@@ -4,8 +4,8 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#composer-lock-the-lock-file",
         "This file is @generated automatically"
     ],
-    "hash": "26160097d43dad7bfa7a62b06a227fad",
-    "content-hash": "f3807a6b89b76e5bd7c66df892014799",
+    "hash": "4af4ad983eb83571dcfdf3a463f85289",
+    "content-hash": "a080b8a2f7a6f160db79c758d86ba2a1",
     "packages": [
         {
             "name": "container-interop/container-interop",
@@ -260,23 +260,24 @@
             "time": "2016-06-24 23:00:38"
         },
         {
-            "name": "luke-nz/phpreddit",
+            "name": "halfpastfouram/phpreddit",
             "version": "dev-master",
             "source": {
                 "type": "git",
-                "url": "https://github.com/LukeNZ/phpreddit.git",
-                "reference": "0c1d8fd1003becf60537beb46553f9a3f960488a"
+                "url": "https://github.com/halfpastfouram/phpreddit.git",
+                "reference": "af1b13fa4bbf8f8a97b8c70ede7f019888a57166"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/LukeNZ/phpreddit/zipball/0c1d8fd1003becf60537beb46553f9a3f960488a",
-                "reference": "0c1d8fd1003becf60537beb46553f9a3f960488a",
+                "url": "https://api.github.com/repos/halfpastfouram/phpreddit/zipball/af1b13fa4bbf8f8a97b8c70ede7f019888a57166",
+                "reference": "af1b13fa4bbf8f8a97b8c70ede7f019888a57166",
                 "shasum": ""
             },
             "require": {
                 "guzzlehttp/guzzle": "~6.0",
-                "php": ">=5.5.0",
-                "predis/predis": ">=1.0.3"
+                "php": ">=5.5.0 || ^7.0",
+                "predis/predis": ">=1.0.3",
+                "zendframework/zend-config": "2.6.0"
             },
             "require-dev": {
                 "phpunit/phpunit": "5.2.*"
@@ -284,7 +285,7 @@
             "type": "library",
             "autoload": {
                 "psr-4": {
-                    "LukeNZ\\Reddit\\": "src/"
+                    "Halfpastfour\\Reddit\\": "src/"
                 }
             },
             "notification-url": "https://packagist.org/downloads/",
@@ -293,16 +294,16 @@
             ],
             "authors": [
                 {
-                    "name": "Luke Davia"
+                    "name": "Bob Kruithof"
                 }
             ],
-            "description": "A PHP Reddit API wrapper that doesn't completely suck.",
-            "homepage": "http://github.com/LukeNZ/phpreddit",
+            "description": "Expressive PHP Reddit API wrapper with oauth2 support.",
+            "homepage": "http://github.com/halfpastfouram/phpreddit",
             "keywords": [
                 "api",
                 "reddit"
             ],
-            "time": "2016-05-26 08:22:15"
+            "time": "2016-09-09 15:24:00"
         },
         {
             "name": "myclabs/deep-copy",
@@ -1870,7 +1871,7 @@
     "minimum-stability": "stable",
     "stability-flags": {
         "phpunit/phpunit": 20,
-        "luke-nz/phpreddit": 20
+        "halfpastfouram/phpreddit": 20
     },
     "prefer-stable": false,
     "prefer-lowest": false,
