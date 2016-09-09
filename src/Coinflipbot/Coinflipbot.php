@@ -338,7 +338,7 @@ class Coinflipbot implements Bot
 				$p_aComment['data']['author'],
 				$flip ? 'heads' : 'tails'
 			], $this->config->reddit->response->flip
-		) . "\n\n{$this->config->reddit->response->footer}";
+		) . "\n\n---\n\n{$this->config->reddit->response->footer}";
 
 		if( $this->reddit->comment( $p_aComment['data']['name'], $message ) ) {
 			$this->saveReply( $p_aComment, $flip, null, $message );
@@ -406,7 +406,7 @@ class Coinflipbot implements Bot
 			'{author}',
 			$p_aComment['data']['author'],
 			$this->config->reddit->response->ban
-		) . "\n\n{$this->config->reddit->response->footer}";
+		) . "\n\n---\n\n{$this->config->reddit->response->footer}";
 
 		if( $this->reddit->comment( $p_aComment['data']['name'], $message ) ) {
 			$this->saveReply( $p_aComment, null, 1, $message );
@@ -430,7 +430,7 @@ class Coinflipbot implements Bot
 			'{author}',
 			$p_aComment['data']['author'],
 			$this->config->reddit->response->unban
-		) . "\n\n{$this->config->reddit->response->footer}";
+		) . "\n\n---\n\n{$this->config->reddit->response->footer}";
 
 		if( $this->reddit->comment( $p_aComment['data']['name'], $message ) ) {
 			$this->saveReply( $p_aComment, null, 1, $message );
