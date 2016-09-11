@@ -28,28 +28,32 @@ namespace Coinflipbot;
 class Autoload
 {
 	/**
+	 * The basepath to look in for files.
+	 *
 	 * @var string
 	 */
 	private static $basePath;
 
 	/**
-	 * Register the autoloader
+	 * Register the autoloader.
 	 *
 	 * @param string $p_sBasePath
 	 */
 	public static function register( $p_sBasePath = __DIR__ )
 	{
-		self::$basePath	= rtrim( $p_sBasePath, '/' ) . '/';
+		self::$basePath = rtrim( $p_sBasePath, '/' ) . '/';
 		spl_autoload_register( self::class . '::load' );
 	}
 
 	/**
+	 * Try and load a class.
+	 *
 	 * @param string $class
 	 */
 	public static function load( $class )
 	{
-		$parts		= explode( '\\', $class );
-		$className	= array_pop( $parts );
+		$parts     = explode( '\\', $class );
+		$className = array_pop( $parts );
 		require self::$basePath . implode( '/', $parts ) . "/{$className}.php";
 	}
 }
