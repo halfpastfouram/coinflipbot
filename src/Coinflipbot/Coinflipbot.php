@@ -39,29 +39,30 @@ class Coinflipbot implements Bot
 	const PARSE_UNBAN	= 4;
 
 	/**
+	 * The configuration the bot leans on.
+	 *
 	 * @var Config|null
 	 */
 	private $config;
 
 	/**
+	 * The database adapter used for reading from and writing to the database.
+	 *
 	 * @var Adapter
 	 */
 	private $dbAdapter;
 
 	/**
+	 * The api wrapper used for communicating with reddit.
+	 *
 	 * @var Reddit
 	 */
 	private $reddit;
 
 	/**
-	 * @var array
-	 */
-	protected $replied = [ ];
-
-	/**
 	 * Overwrite the configuration values.
 	 *
-	 * @param Config $p_oConfig
+	 * @param Config $p_oConfig The configuration for the bot to use.
 	 *
 	 * @return Bot
 	 */
@@ -114,7 +115,7 @@ class Coinflipbot implements Bot
 		// Look for ban triggers. It's important to do this first to avoid parsing comments in a banned subreddit.
 		print( "Looking for ban triggers.\n" );
 		foreach( $this->searchComments( $comments, $trigger->ban->toArray(), self::PARSE_BAN ) as $comment ) {
-			if( !$this->hasReplied( $comment ) && $this->commentIsFromSubredditMod( $comment )
+			if( !$this->hasReplied( $comment ) && $this->isCommentFromSubredditMod( $comment )
 				&& !$this->isBannedFromSubreddit( $comment['data']['subreddit'] )
 			) {
 				print( "Banning self from /r/{$comment['data']['subreddit']}\n" );
@@ -125,7 +126,7 @@ class Coinflipbot implements Bot
 		// Look for unban triggers
 		print( "Looking for unban triggers.\n" );
 		foreach( $this->searchComments( $comments, $trigger->unban->toArray(), self::PARSE_UNBAN ) as $comment ) {
-			if( !$this->hasReplied( $comment ) && $this->commentIsFromSubredditMod( $comment )
+			if( !$this->hasReplied( $comment ) && $this->isCommentFromSubredditMod( $comment )
 				&& $this->isBannedFromSubreddit( $comment['data']['subreddit'] )
 			) {
 				print( "Unbanning self from /r/{$comment['data']['subreddit']}\n" );
@@ -158,6 +159,8 @@ class Coinflipbot implements Bot
 	}
 
 	/**
+	 * Get the thing name for the last parsed comment.
+	 *
 	 * @return string|null
 	 */
 	protected function getLastParsedCommentName()
@@ -170,8 +173,10 @@ class Coinflipbot implements Bot
 	}
 
 	/**
-	 * @param array $p_aComment
-	 * @param int   $p_iParseType
+	 * Check if the given comment has been parsed already.
+	 *
+	 * @param array $p_aComment   The comment to check on.
+	 * @param int   $p_iParseType The parse type indicating the type of action the comment was parsed for.
 	 *
 	 * @return bool
 	 */
@@ -190,7 +195,9 @@ class Coinflipbot implements Bot
 	}
 
 	/**
-	 * @param string $p_sSubreddit
+	 * Check if the bot is banned from the subreddit with the given name.
+	 *
+	 * @param string $p_sSubreddit The subreddit to check on.
 	 *
 	 * @return bool
 	 */
@@ -208,11 +215,13 @@ class Coinflipbot implements Bot
 	}
 
 	/**
-	 * @param array $p_aComment
+	 * Check if the given comment is from a user that is a moderator in the comment's subreddit.
+	 *
+	 * @param array $p_aComment The comment to check on.
 	 *
 	 * @return bool
 	 */
-	protected function commentIsFromSubredditMod( array $p_aComment )
+	protected function isCommentFromSubredditMod( array $p_aComment )
 	{
 		if( $mods = $this->reddit->subreddit( $p_aComment['data']['subreddit'] )->getMods() ) {
 			return in_array( $p_aComment['data']['author'], $mods );
@@ -221,11 +230,14 @@ class Coinflipbot implements Bot
 	}
 
 	/**
-	 * @param array $p_aCommentData
-	 * @param bool  $p_bHit
-	 * @param int   $p_iParseType
+	 * Save the thing name of the given comment to the database with an indicator if the comment has triggered an
+	 * response from the bot.
 	 *
-	 * @return \Coinflipbot\Coinflipbot
+	 * @param array $p_aCommentData The comment to save.
+	 * @param bool  $p_bHit         Indicating if an action was performed because of this comment.
+	 * @param int   $p_iParseType   Indicating what type of action the comment was parsed for.
+	 *
+	 * @return Coinflipbot
 	 */
 	protected function saveParsedComment( array $p_aCommentData, $p_bHit, $p_iParseType )
 	{
@@ -246,9 +258,9 @@ class Coinflipbot implements Bot
 	/**
 	 * Search comment body for given needle and return only those that have the needle.
 	 *
-	 * @param array $p_aComments
-	 * @param mixed $p_mNeedle
-	 * @param int   $p_iParseType
+	 * @param array $p_aComments  An array of comments to search.
+	 * @param mixed $p_mNeedle    A string or array of strings that will be searched for in the comments
+	 * @param int   $p_iParseType Indicating what type of action the comments should be searched for.
 	 *
 	 * @return array
 	 */
@@ -279,7 +291,9 @@ class Coinflipbot implements Bot
 	}
 
 	/**
-	 * @param array $p_aComment
+	 * Check if the bot has already replied to the given comment.
+	 *
+	 * @param array $p_aComment The comment to check on.
 	 *
 	 * @return bool
 	 */
@@ -294,12 +308,14 @@ class Coinflipbot implements Bot
 	}
 
 	/**
-	 * @param array  $p_aComment
-	 * @param int    $p_iFlip
-	 * @param bool   $p_bBan
-	 * @param string $p_sMessage
+	 * Save the given comment reply to the database with an indicator if the reply is about a ban or a flip.
 	 *
-	 * @return \Coinflipbot\Coinflipbot
+	 * @param array  $p_aComment The comment to be saved.
+	 * @param int    $p_iFlip    A flip (1 for heads, 0 for tails and null for no flip-related action).
+	 * @param bool   $p_bBan     A ban (1 for ban, 0 for unban and null for no ban-related action).
+	 * @param string $p_sMessage The message that was sent as a reply.
+	 *
+	 * @return Coinflipbot
 	 */
 	protected function saveReply( array $p_aComment, $p_iFlip = null, $p_bBan = null, $p_sMessage )
 	{
@@ -324,7 +340,9 @@ class Coinflipbot implements Bot
 	}
 
 	/**
-	 * @param array $p_aComment
+	 * Flip a coin and reply with a comment telling the user the result.
+	 *
+	 * @param array $p_aComment The comment to reply to.
 	 *
 	 * @return Coinflipbot
 	 */
@@ -351,8 +369,11 @@ class Coinflipbot implements Bot
 	}
 
 	/**
-	 * @param array $p_aComment
-	 * @param bool  $p_bDisplayPublic
+	 * Ban the bot from using the subreddit of the given comment with an indicator whether of not the ban should
+	 * be made public.
+	 *
+	 * @param array $p_aComment       The comment that told the bot to ban itself from the subreddit.
+	 * @param bool  $p_bDisplayPublic Indicating whether or not the ban should be made public.
 	 *
 	 * @return Coinflipbot
 	 */
@@ -374,7 +395,9 @@ class Coinflipbot implements Bot
 	}
 
 	/**
-	 * @param array $p_aComment
+	 * Unban the bot from the subreddit of the given comment.
+	 *
+	 * @param array $p_aComment The comment that told the bot to unban itself from the subreddit.
 	 *
 	 * @return Coinflipbot
 	 */
@@ -395,7 +418,9 @@ class Coinflipbot implements Bot
 	}
 
 	/**
-	 * @param array $p_aComment
+	 * Ban the bot from using the subreddit of the given comment and reply with a comment.
+	 *
+	 * @param array $p_aComment The comment telling the bot to ban itself from a subreddit.
 	 *
 	 * @return Coinflipbot
 	 */
@@ -419,7 +444,9 @@ class Coinflipbot implements Bot
 	}
 
 	/**
-	 * @param array $p_aComment
+	 * Unban the bot from the subreddit of the given comment and reply with a comment.
+	 *
+	 * @param array $p_aComment The comment telling the bot to unban itself from a subreddit.
 	 *
 	 * @return Coinflipbot
 	 */
@@ -446,7 +473,7 @@ class Coinflipbot implements Bot
 	 * Perform sentient tasks. Unpredictable behavior.
 	 *
 	 * @param callable $p_cTask
-	 * @param          $p_aParams
+	 * @param array    $p_aParams
 	 *
 	 * @return mixed
 	 */
