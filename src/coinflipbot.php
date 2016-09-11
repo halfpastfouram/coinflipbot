@@ -3,6 +3,7 @@
  * /u/coinflipbot by halfpastfour.am. A reddit bot that flips coins for people by request.
  *
  * Copyright (c) 2016 halfpastfour.am. This file is part of halfpastfour/coinflipbot.
+ * Contact the developer at coinflipbot@halfpastfour.am.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as
@@ -16,7 +17,7 @@
  *
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- */ 
+ */
 
 error_reporting( E_ALL );
 ini_set( 'display_errors', 1 );

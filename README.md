@@ -34,6 +34,6 @@ Requirements:
 
 Lisence:
 -
-![GPL v3.0](https://www.gnu.org/graphics/gplv3-127x51.png "GNU GPL v3.0")
+![AGPL v3.0](https://www.gnu.org/graphics/agplv3-155x51.png "GNU AGPL v3.0")
 
-[GNU GPL v3.0](https://www.gnu.org/licenses/gpl-3.0.txt)
+[GNU AGPL v3.0](https://www.gnu.org/licenses/agpl-3.0.txt)
