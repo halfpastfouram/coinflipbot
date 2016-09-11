@@ -1,7 +1,9 @@
 # /u/coinflipbot
-Version alpha-1.2
+Version alpha-1.5
 
 This is [/u/coinflipbot](https://reddit.com/u/coinflipbot), a bot that flips coins on [reddit](https://reddit.com). For more information see [/r/coinflipbot](https://reddit.com/r/coinflipbot).
+
+This bot uses the PHP reddit API wrapper [halfpastfour/phpreddit](https://github.com/halfpastfouram/phpreddit).
 
 ----
 
@@ -16,11 +18,13 @@ cd coinflipbot && composer install
 cat database.sql | mysql -p
 cd src && cp config.sample.ini config.ini
 ```
-Edit config.ini
+Don't forget to edit `config.ini`! The bot can't run with an empty configuration file. 
 
 To run:
 -
 `php coinflipbot.php`
+
+The actual /u/coinflipbot is ran by a cronjob on a VPS every 60 seconds.
 
 Requirements:
 -

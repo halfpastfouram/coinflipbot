@@ -65,3 +65,151 @@ CREATE INDEX subreddits__ignored_unban_comment_name_index ON subreddits__ignored
 CREATE INDEX subreddits__ignored_unban_requested_by_mod_index ON subreddits__ignored (unban_requested_by_mod);
 CREATE INDEX subreddits__ignored_unban_timestamp_index ON subreddits__ignored (unban_timestamp);
 CREATE INDEX subreddits__ignored_display_public_index ON subreddits__ignored (display_public);
+
+# Statistics views
+
+CREATE OR REPLACE VIEW stats__flips_side AS
+	SELECT
+		COUNT( id )                             AS total,
+		sum( (`comments__replied`.`flip` = 1) ) AS `heads`,
+		sum( (`comments__replied`.`flip` = 0) ) AS `tails`
+	FROM `comments__replied`
+	WHERE flip IS NOT NULL;
+
+CREATE OR REPLACE VIEW stats__flips_weekday AS
+	SELECT
+		WEEKDAY( FROM_UNIXTIME( `timestamp` ) ) AS weekday,
+		COUNT( id )                             AS total,
+		IFNULL( SUM( flip = 1 ), 0 )            AS heads,
+		IFNULL( SUM( flip = 0 ), 0 )            AS tails
+	FROM comments__replied
+	WHERE flip IS NOT NULL
+	GROUP BY weekday
+	ORDER BY weekday;
+
+CREATE OR REPLACE VIEW stats__flips_month AS
+	SELECT
+		MONTH( FROM_UNIXTIME( `timestamp` ) ) AS month,
+		COUNT( id )                           AS total,
+		IFNULL( SUM( flip = 1 ), 0 )          AS heads,
+		IFNULL( SUM( flip = 0 ), 0 )          AS tails
+	FROM comments__replied
+	WHERE flip IS NOT NULL
+	GROUP BY month
+	ORDER BY month;
+
+CREATE OR REPLACE VIEW stats__flips_today AS
+	SELECT
+		COUNT( id )                  AS total,
+		IFNULL( SUM( flip = 1 ), 0 ) AS heads,
+		IFNULL( SUM( flip = 0 ), 0 ) AS tails
+	FROM comments__replied
+	WHERE UNIX_TIMESTAMP( CURDATE( ) ) <= `timestamp`
+		  AND UNIX_TIMESTAMP( CURDATE( ) + INTERVAL 1 DAY ) >= `timestamp`
+		  AND flip IS NOT NULL;
+
+CREATE OR REPLACE VIEW stats__flips_yesterday AS
+	SELECT
+		COUNT( id )                  AS total,
+		IFNULL( SUM( flip = 1 ), 0 ) AS heads,
+		IFNULL( SUM( flip = 0 ), 0 ) AS tails
+	FROM comments__replied
+	WHERE UNIX_TIMESTAMP( CURDATE( ) - INTERVAL 1 DAY ) <= `timestamp`
+		  AND UNIX_TIMESTAMP( CURDATE( ) ) >= `timestamp`
+		  AND flip IS NOT NULL;
+
+CREATE OR REPLACE VIEW stats__flips_current_month AS
+	SELECT
+		COUNT( id )                  AS total,
+		IFNULL( SUM( flip = 1 ), 0 ) AS heads,
+		IFNULL( SUM( flip = 0 ), 0 ) AS tails
+	FROM comments__replied
+	WHERE flip IS NOT NULL
+		  AND YEAR( FROM_UNIXTIME( TIMESTAMP ) ) = YEAR( NOW( ) )
+		  AND MONTH( FROM_UNIXTIME( TIMESTAMP ) ) >= MONTH( NOW( ) );
+
+CREATE OR REPLACE VIEW stats__flips_current_year AS
+	SELECT
+		COUNT( id )                  AS total,
+		IFNULL( SUM( flip = 1 ), 0 ) AS heads,
+		IFNULL( SUM( flip = 0 ), 0 ) AS tails
+	FROM comments__replied
+	WHERE flip IS NOT NULL
+		  AND YEAR( FROM_UNIXTIME( TIMESTAMP ) ) = YEAR( NOW( ) );
+
+CREATE OR REPLACE VIEW stats__flips_subreddit AS
+	SELECT
+		subreddit_name,
+		COUNT( id )     AS total,
+		SUM( flip = 1 ) AS heads,
+		SUM( flip = 0 ) AS tails
+	FROM comments__replied
+	WHERE flip IS NOT NULL
+	GROUP BY subreddit_name
+	ORDER BY total DESC;
+
+CREATE OR REPLACE VIEW stats__flips_subreddit AS
+	SELECT
+		subreddit_name,
+		COUNT( id )     AS total,
+		SUM( flip = 1 ) AS heads,
+		SUM( flip = 0 ) AS tails
+	FROM comments__replied
+	WHERE flip IS NOT NULL
+	GROUP BY subreddit_name
+	ORDER BY total DESC;
+
+CREATE OR REPLACE VIEW stats__flips_hour AS
+	SELECT
+		HOUR( FROM_UNIXTIME( `timestamp` ) ) AS hour,
+		COUNT( * )                           AS total,
+		SUM( flip = 1 )                      AS heads,
+		SUM( flip = 0 )                      AS tails
+	FROM comments__replied
+	WHERE flip IS NOT NULL
+	GROUP BY hour
+	ORDER BY hour;
+
+CREATE OR REPLACE VIEW stats__flips_user AS
+	SELECT
+		`user`,
+		COUNT( id )     AS total,
+		SUM( flip = 1 ) AS heads,
+		SUM( flip = 0 ) AS tails
+	FROM comments__replied
+	WHERE flip IS NOT NULL
+	GROUP BY `user`
+	ORDER BY total DESC;
+
+CREATE OR REPLACE VIEW stats__flips_projection_current_month AS
+	SELECT
+		COUNT( id )                                                                      AS total,
+		DAYOFMONTH( NOW( ) )                                                             AS today,
+		DAYOFMONTH( LAST_DAY( NOW( ) ) )                                                 AS lastday,
+		ROUND( (COUNT( id ) / DAYOFMONTH( NOW( ) )) * DAYOFMONTH( LAST_DAY( NOW( ) ) ) ) AS projection
+	FROM comments__replied
+	WHERE flip IS NOT NULL
+		  AND YEAR( FROM_UNIXTIME( `timestamp` ) ) = YEAR( NOW( ) )
+		  AND MONTH( FROM_UNIXTIME( `timestamp` ) ) = MONTH( NOW( ) );
+
+CREATE OR REPLACE VIEW stats__flips_projection_current_week AS
+	SELECT
+		COUNT( id )                                    AS total,
+		WEEKDAY( NOW( ) )                              AS today,
+		7                                              AS lastday,
+		ROUND( (COUNT( id ) / WEEKDAY( NOW( ) )) * 7 ) AS projection
+	FROM comments__replied
+	WHERE flip IS NOT NULL
+		  AND YEAR( FROM_UNIXTIME( `timestamp` ) ) = YEAR( NOW( ) )
+		  AND WEEK( FROM_UNIXTIME( `timestamp` ) ) = WEEK( NOW( ), 1 );
+
+CREATE OR REPLACE VIEW stats__flips_projection_current_year AS
+	SELECT
+		COUNT( id )                                                                               AS total,
+		DAYOFYEAR( NOW( ) )                                                                       AS today,
+		DAYOFYEAR( LAST_DAY( DATE_ADD( NOW( ), INTERVAL 12 - MONTH( NOW( ) ) MONTH ) ) )          AS lastday,
+		ROUND( (COUNT( id ) / DAYOFYEAR( NOW( ) )) *
+			   DAYOFYEAR( LAST_DAY( DATE_ADD( NOW( ), INTERVAL 12 - MONTH( NOW( ) ) MONTH ) ) ) ) AS projection
+	FROM comments__replied
+	WHERE flip IS NOT NULL
+		  AND YEAR( FROM_UNIXTIME( `timestamp` ) ) = YEAR( NOW( ) );

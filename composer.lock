@@ -265,12 +265,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/halfpastfouram/phpreddit.git",
-                "reference": "af1b13fa4bbf8f8a97b8c70ede7f019888a57166"
+                "reference": "4fb30187410a012a9785300c5f79c1ea9e6246cf"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/halfpastfouram/phpreddit/zipball/af1b13fa4bbf8f8a97b8c70ede7f019888a57166",
-                "reference": "af1b13fa4bbf8f8a97b8c70ede7f019888a57166",
+                "url": "https://api.github.com/repos/halfpastfouram/phpreddit/zipball/4fb30187410a012a9785300c5f79c1ea9e6246cf",
+                "reference": "4fb30187410a012a9785300c5f79c1ea9e6246cf",
                 "shasum": ""
             },
             "require": {
@@ -285,7 +285,8 @@
             "type": "library",
             "autoload": {
                 "psr-4": {
-                    "Halfpastfour\\Reddit\\": "src/"
+                    "Halfpastfour\\Reddit\\": "src/",
+                    "Test\\": "test/"
                 }
             },
             "notification-url": "https://packagist.org/downloads/",
@@ -303,7 +304,7 @@
                 "api",
                 "reddit"
             ],
-            "time": "2016-09-09 15:24:00"
+            "time": "2016-09-10 19:34:38"
         },
         {
             "name": "myclabs/deep-copy",

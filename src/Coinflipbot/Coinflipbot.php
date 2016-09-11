@@ -21,7 +21,6 @@ namespace Coinflipbot;
 use Halfpastfour\Reddit\Interfaces\Bot;
 use Halfpastfour\Reddit\Reddit;
 use Halfpastfour\Reddit\TokenStorageMethod;
-use PDOException;
 use Zend\Config\Config;
 use Zend\Db\Adapter\Adapter;
 use Zend\Db\Sql\Sql;
