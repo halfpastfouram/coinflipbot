@@ -81,8 +81,13 @@ class Coinflipbot implements Bot
 	public function init()
 	{
 		print( "Initializing.\n" );
+		// Set the default timezone to GMT+0
+		date_default_timezone_set( 'UTC' );
+
 		// Set up db adapter
 		$this->dbAdapter	= new Adapter( $this->config->db->toArray() );
+		// Try and set the timezone for the current connection
+		$this->dbAdapter->query( 'SET TIME_ZONE = "Etc/UTC";' );
 
 		// Set up the reddit client
 		$this->reddit = new Reddit(
@@ -127,7 +132,7 @@ class Coinflipbot implements Bot
 		print( "Looking for unban triggers.\n" );
 		foreach( $this->searchComments( $comments, $trigger->unban->toArray(), self::PARSE_UNBAN ) as $comment ) {
 			if( !$this->hasReplied( $comment ) && $this->isCommentFromSubredditMod( $comment )
-				&& $this->isBannedFromSubreddit( $comment['data']['subreddit'] )
+				&& $this->isBannedFromSubreddit( $comment['data']['subreddit'], $comment['data']['created_utc'] )
 			) {
 				print( "Unbanning self from /r/{$comment['data']['subreddit']}\n" );
 				$this->unbanAndReply( $comment );
@@ -198,18 +203,24 @@ class Coinflipbot implements Bot
 	 * Check if the bot is banned from the subreddit with the given name.
 	 *
 	 * @param string $p_sSubreddit The subreddit to check on.
+	 * @param int    $p_iTimestamp Optional timestamp to compare with
 	 *
 	 * @return bool
 	 */
-	protected function isBannedFromSubreddit( $p_sSubreddit )
+	protected function isBannedFromSubreddit( $p_sSubreddit , $p_iTimestamp = null )
 	{
 		$statement	= new Sql( $this->dbAdapter );
-		$select	= $statement->select()->from( 'subreddits__ignored' )
+		$parameters	= [ ':subreddit_name' => strval( $p_sSubreddit ) ];
+		$select		= $statement->select()->from( 'subreddits__ignored' )
 			->where( 'subreddit_name = :subreddit_name' )
 			->where( 'unban IS NULL' );
-		$result	= $statement->prepareStatementForSqlObject( $select )->execute( [
-			':subreddit_name'	=> strval( $p_sSubreddit ),
-		] );
+
+		if( $p_iTimestamp ) {
+			$parameters[ ':timestamp' ] = intval( $p_iTimestamp );
+			$select->where( 'ban_timestamp <= :timestamp' );
+		}
+
+		$result = $statement->prepareStatementForSqlObject( $select )->execute( $parameters );
 
 		return $result->count() > 0;
 	}

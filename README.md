@@ -1,5 +1,5 @@
 # /u/coinflipbot
-Version alpha-1.8
+Version alpha-1.9
 
 This is [/u/coinflipbot](https://reddit.com/u/coinflipbot), a bot that flips coins on [reddit](https://reddit.com). For more information see [/r/coinflipbot](https://reddit.com/r/coinflipbot).
 
