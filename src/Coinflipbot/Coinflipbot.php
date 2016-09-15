@@ -34,9 +34,12 @@ use Zend\Db\Sql\Sql;
  */
 class Coinflipbot implements Bot
 {
-	const PARSE_FLIP	= 1;
-	const PARSE_BAN		= 2;
-	const PARSE_UNBAN	= 4;
+	const PARSE_FLIP             = 1;
+	const PARSE_BAN              = 2;
+	const PARSE_UNBAN            = 4;
+	const PARSE_WHITELIST        = 8;
+	const PARSE_UNWHITELIST      = 16;
+	const PARSE_WHITELISTED_FLIP = 32;
 
 	/**
 	 * The configuration the bot leans on.
@@ -139,6 +142,46 @@ class Coinflipbot implements Bot
 			}
 		}
 
+		// Look for whitelist triggers. It's important to do this first to allow parsing comments for special commands
+		// in a whitelisted subreddit.
+		print( "Looking for whitelist triggers.\n" );
+		$triggers	= $trigger->whitelist->toArray();
+		foreach( $this->searchComments( $comments, $triggers, self::PARSE_WHITELIST ) as $comment ) {
+			if( !$this->hasReplied( $comment ) && $this->isCommentFromSubredditMod( $comment )
+				&& !$this->isWhitelistedInSubreddit( $comment['data']['subreddit'] )
+				&& !$this->isBannedFromSubreddit( $comment['data']['subreddit'] )
+			) {
+				print( "Whitelisting /r/{$comment['data']['subreddit']}\n" );
+				$this->whitelistAndReply( $comment );
+			}
+		}
+
+		// Look for unwhitelist triggers
+		print( "Looking for unwhitelist triggers.\n" );
+		$triggers	= $trigger->unwhitelist->toArray();
+		foreach( $this->searchComments( $comments, $triggers, self::PARSE_UNWHITELIST ) as $comment ) {
+			if( !$this->hasReplied( $comment ) && $this->isCommentFromSubredditMod( $comment )
+				&& $this->isWhitelistedInSubreddit( $comment['data']['subreddit'], $comment['data']['created_utc'] )
+				&& !$this->isBannedFromSubreddit( $comment['data']['subreddit'] )
+			) {
+				print( "Unwhitelisting /r/{$comment['data']['subreddit']}\n" );
+				$this->unwhitelistAndReply( $comment );
+			}
+		}
+
+		// Look for whitelisted flip triggers
+		print( "Looking for whitelisted flip triggers.\n" );
+		$triggers	= $trigger->whitelisted->flip->toArray();
+		foreach( $this->searchComments( $comments, $triggers, self::PARSE_WHITELISTED_FLIP ) as $comment ) {
+			if( !$this->hasReplied( $comment ) && !$this->isBannedFromSubreddit( $comment['data']['subreddit'] )
+				&& $this->isWhitelistedInSubreddit( $comment['data']['subreddit'] )
+				&& $comment['data']['author'] != $this->config->reddit->account->username
+			) {
+				print( "Replying to {$comment['data']['name']}\n" );
+				$this->flipAndReply( $comment );
+			}
+		}
+
 		// Look for flip triggers
 		print( "Looking for flip triggers.\n" );
 		foreach( $this->searchComments( $comments, $trigger->flip->toArray(), self::PARSE_FLIP ) as $comment ) {
@@ -226,6 +269,32 @@ class Coinflipbot implements Bot
 	}
 
 	/**
+	 * Check if the bot is whitelisted in the subreddit with the given name.
+	 *
+	 * @param string $p_sSubreddit The subreddit to check on.
+	 * @param int    $p_iTimestamp Optional timestamp to compare with
+	 *
+	 * @return bool
+	 */
+	protected function isWhitelistedInSubreddit( $p_sSubreddit , $p_iTimestamp = null )
+	{
+		$statement	= new Sql( $this->dbAdapter );
+		$parameters	= [ ':subreddit_name' => strval( $p_sSubreddit ) ];
+		$select		= $statement->select()->from( 'subreddits__whitelisted' )
+			->where( 'subreddit_name = :subreddit_name' )
+			->where( 'unwhitelist IS NULL' );
+
+		if( $p_iTimestamp ) {
+			$parameters[ ':timestamp' ] = intval( $p_iTimestamp );
+			$select->where( 'whitelist_timestamp <= :timestamp' );
+		}
+
+		$result = $statement->prepareStatementForSqlObject( $select )->execute( $parameters );
+
+		return $result->count() > 0;
+	}
+
+	/**
 	 * Check if the given comment is from a user that is a moderator in the comment's subreddit.
 	 *
 	 * @param array $p_aComment The comment to check on.
@@ -284,7 +353,6 @@ class Coinflipbot implements Bot
 			$hit		= 0;
 			// Skip this comment if it has already been parsed before
 			if( $this->hasParsed( $commentData, $p_iParseType ) ) {
-				print( "Comment {$comment['name']} has been parsed before for type {$p_iParseType}. Skipping it.\n" );
 				continue;
 			}
 
@@ -321,15 +389,22 @@ class Coinflipbot implements Bot
 	/**
 	 * Save the given comment reply to the database with an indicator if the reply is about a ban or a flip.
 	 *
-	 * @param array  $p_aComment The comment to be saved.
-	 * @param int    $p_iFlip    A flip (1 for heads, 0 for tails and null for no flip-related action).
-	 * @param bool   $p_bBan     A ban (1 for ban, 0 for unban and null for no ban-related action).
-	 * @param string $p_sMessage The message that was sent as a reply.
+	 * @param array  $p_aComment   The comment to be saved.
+	 * @param int    $p_iFlip      A flip (1 for heads, 0 for tails and null for no flip-related action).
+	 * @param bool   $p_bBan       A ban (1 for ban, 0 for unban and null for no ban-related action).
+	 * @param bool   $p_bWhitelist A whitelist (1 for whitelist, 0 for unwhitelist and null for no whitelist-related
+	 *                             action).
+	 * @param string $p_sMessage   The message that was sent as a reply.
 	 *
 	 * @return Coinflipbot
 	 */
-	protected function saveReply( array $p_aComment, $p_iFlip = null, $p_bBan = null, $p_sMessage )
-	{
+	protected function saveReply(
+		array $p_aComment,
+		$p_iFlip			= null,
+		$p_bBan				= null,
+		$p_bWhitelist		= null,
+		$p_sMessage
+	) {
 		$sql	= new Sql( $this->dbAdapter );
 		$insert	= $sql->insert( 'comments__replied' )
 			->values( [
@@ -337,6 +412,7 @@ class Coinflipbot implements Bot
 				'timestamp'			=> time(),
 				'flip'				=> !is_null( $p_iFlip ) ? intval( $p_iFlip ) : null,
 				'ban'				=> !is_null( $p_bBan ) ? intval( $p_bBan ) : null,
+				'whitelist'			=> !is_null( $p_bWhitelist ) ? intval( $p_bWhitelist ) : null,
 				'user'				=> $p_aComment['data']['author'],
 				'subreddit_name'	=> $p_aComment['data']['subreddit'],
 				'post_name'			=> $p_aComment['data']['link_id'],
@@ -373,14 +449,14 @@ class Coinflipbot implements Bot
 		) . "\n\n---\n\n{$this->config->actions->response->footer}";
 
 		if( $this->reddit->comment( $p_aComment['data']['name'], $message ) ) {
-			$this->saveReply( $p_aComment, $flip, null, $message );
+			$this->saveReply( $p_aComment, $flip, null, null, $message );
 		}
 
 		return $this;
 	}
 
 	/**
-	 * Ban the bot from using the subreddit of the given comment with an indicator whether of not the ban should
+	 * Ban the bot from using the subreddit of the given comment with an indicator whether or not the ban should
 	 * be made public.
 	 *
 	 * @param array $p_aComment       The comment that told the bot to ban itself from the subreddit.
@@ -429,6 +505,55 @@ class Coinflipbot implements Bot
 	}
 
 	/**
+	 * Whitelist the bot in the subreddit of the given comment with an indicator whether or not the whitelist should
+	 * be made public.
+	 *
+	 * @param array $p_aComment       The comment that told the bot to whitelist itself from the subreddit.
+	 * @param bool  $p_bDisplayPublic Indicating whether or not the whitelist should be made public.
+	 *
+	 * @return Coinflipbot
+	 */
+	protected function whitelistSubreddit( array $p_aComment, $p_bDisplayPublic = true )
+	{
+		$sql	= new Sql( $this->dbAdapter );
+		$insert	= $sql->insert( 'subreddits__whitelisted' )
+			->values( [
+				'subreddit_name'             => $p_aComment['data']['subreddit'],
+				'whitelist_comment_name'     => $p_aComment['data']['name'],
+				'whitelist_requested_by_mod' => $p_aComment['data']['author'],
+				'whitelist_timestamp'        => time(),
+				'display_public'             => intval( $p_bDisplayPublic ),
+			] );
+		$selectString	= $sql->buildSqlString( $insert );
+		$this->dbAdapter->query( $selectString, Adapter::QUERY_MODE_EXECUTE );
+
+		return $this;
+	}
+
+	/**
+	 * Unwhitelist the bot in the subreddit of the given comment.
+	 *
+	 * @param array $p_aComment The comment that told the bot to unwhitelist itself in the subreddit.
+	 *
+	 * @return Coinflipbot
+	 */
+	protected function unwhitelistSubreddit( array $p_aComment )
+	{
+		$sql	= new Sql( $this->dbAdapter );
+		$update	= $sql->update( 'subreddits__whitelisted' )
+			->set( [
+				'unwhitelist'                  => 1,
+				'unwhitelist_comment_name'     => $p_aComment['data']['name'],
+				'unwhitelist_requested_by_mod' => $p_aComment['data']['author'],
+				'unwhitelist_timestamp'        => time(),
+			] );
+		$selectString	= $sql->buildSqlString( $update );
+		$this->dbAdapter->query( $selectString, Adapter::QUERY_MODE_EXECUTE );
+
+		return $this;
+	}
+
+	/**
 	 * Ban the bot from using the subreddit of the given comment and reply with a comment.
 	 *
 	 * @param array $p_aComment The comment telling the bot to ban itself from a subreddit.
@@ -448,7 +573,7 @@ class Coinflipbot implements Bot
 		) . "\n\n---\n\n{$this->config->actions->response->footer}";
 
 		if( $this->reddit->comment( $p_aComment['data']['name'], $message ) ) {
-			$this->saveReply( $p_aComment, null, 1, $message );
+			$this->saveReply( $p_aComment, null, 1, null, $message );
 		}
 
 		return $this;
@@ -474,7 +599,59 @@ class Coinflipbot implements Bot
 		) . "\n\n---\n\n{$this->config->actions->response->footer}";
 
 		if( $this->reddit->comment( $p_aComment['data']['name'], $message ) ) {
-			$this->saveReply( $p_aComment, null, 0, $message );
+			$this->saveReply( $p_aComment, null, 0, null, $message );
+		}
+
+		return $this;
+	}
+
+	/**
+	 * Whitelist the bot in the subreddit of the given comment and reply with a comment.
+	 *
+	 * @param array $p_aComment The comment telling the bot to whitelist itself in a subreddit.
+	 *
+	 * @return Coinflipbot
+	 */
+	protected function whitelistAndReply( array $p_aComment )
+	{
+		// Ban self from posting in the subreddit
+		$this->whitelistSubreddit( $p_aComment );
+
+		// Reply to the comment
+		$message	= str_replace(
+				'{author}',
+				$p_aComment['data']['author'],
+				$this->config->actions->response->whitelist
+			) . "\n\n---\n\n{$this->config->actions->response->footer}";
+
+		if( $this->reddit->comment( $p_aComment['data']['name'], $message ) ) {
+			$this->saveReply( $p_aComment, null, null, 1, $message );
+		}
+
+		return $this;
+	}
+
+	/**
+	 * Unwhitelist the bot in the subreddit of the given comment and reply with a comment.
+	 *
+	 * @param array $p_aComment The comment telling the bot to unwhitelist itself in a subreddit.
+	 *
+	 * @return Coinflipbot
+	 */
+	protected function unwhitelistAndReply( array $p_aComment )
+	{
+		// Ban self from posting in the subreddit
+		$this->unwhitelistSubreddit( $p_aComment );
+
+		// Reply to the comment
+		$message	= str_replace(
+				'{author}',
+				$p_aComment['data']['author'],
+				$this->config->actions->response->unwhitelist
+			) . "\n\n---\n\n{$this->config->actions->response->footer}";
+
+		if( $this->reddit->comment( $p_aComment['data']['name'], $message ) ) {
+			$this->saveReply( $p_aComment, null, null, 0, $message );
 		}
 
 		return $this;

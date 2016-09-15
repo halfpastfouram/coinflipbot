@@ -8,7 +8,7 @@ USE coinflipbot;
 # Create tables
 CREATE TABLE comments__parsed
 (
-	id           INT PRIMARY KEY NOT NULL AUTO_INCREMENT,
+	id           BIGINT PRIMARY KEY NOT NULL AUTO_INCREMENT,
 	comment_name VARCHAR(255)    NOT NULL,
 	timestamp    INT             NOT NULL,
 	parse_type   INT             NOT NULL,
@@ -26,6 +26,7 @@ CREATE TABLE comments__replied
 	timestamp      INT             NOT NULL,
 	flip           INT             NULL,
 	ban            INT             NULL,
+	whitelist      INT             NULL,
 	`user`         VARCHAR(255)    NOT NULL,
 	subreddit_name VARCHAR(255)    NOT NULL,
 	post_name      VARCHAR(255)    NOT NULL,
@@ -33,10 +34,12 @@ CREATE TABLE comments__replied
 	url            VARCHAR(255)    NOT NULL,
 	reply          TEXT            NOT NULL
 );
+
 CREATE INDEX comments__replied_comment_name_index ON comments__replied (comment_name);
 CREATE INDEX comments__replied_timestamp_index ON comments__replied (timestamp);
 CREATE INDEX comments__replied_flip_index ON comments__replied (flip);
 CREATE INDEX comments__replied_ban_index ON comments__replied (ban);
+CREATE INDEX comments__replied_whitelist_index ON comments__replied (whitelist);
 CREATE INDEX comments__replied_user_index ON comments__replied (`user`);
 CREATE INDEX comments__replied_subreddit_name_index ON comments__replied (subreddit_name);
 CREATE INDEX comments__replied_post_name_index ON comments__replied (post_name);
@@ -52,7 +55,7 @@ CREATE TABLE `subreddits__ignored` (
 	`unban`                  INT(11)         NULL,
 	`unban_comment_name`     VARCHAR(255)             DEFAULT NULL,
 	`unban_requested_by_mod` VARCHAR(255)             DEFAULT NULL,
-	`unban_timestamp`        INT                      DEFAULT NULL,
+	`unban_timestamp`        INT(11)                      DEFAULT NULL,
 	`display_public`         INT(11)         NOT NULL DEFAULT '1'
 );
 
@@ -65,6 +68,29 @@ CREATE INDEX subreddits__ignored_unban_comment_name_index ON subreddits__ignored
 CREATE INDEX subreddits__ignored_unban_requested_by_mod_index ON subreddits__ignored (unban_requested_by_mod);
 CREATE INDEX subreddits__ignored_unban_timestamp_index ON subreddits__ignored (unban_timestamp);
 CREATE INDEX subreddits__ignored_display_public_index ON subreddits__ignored (display_public);
+
+CREATE TABLE `subreddits__whitelisted` (
+	`id`                           INT PRIMARY KEY NOT NULL AUTO_INCREMENT,
+	`subreddit_name`               VARCHAR(255)    NOT NULL,
+	`whitelist_comment_name`       VARCHAR(255)             DEFAULT NULL,
+	`whitelist_requested_by_mod`   VARCHAR(255)             DEFAULT NULL,
+	`whitelist_timestamp`          INT(11)                  DEFAULT NULL,
+	`unwhitelist`                  INT(11)         NULL,
+	`unwhitelist_comment_name`     VARCHAR(255)             DEFAULT NULL,
+	`unwhitelist_requested_by_mod` VARCHAR(255)             DEFAULT NULL,
+	`unwhitelist_timestamp`        INT(11)                  DEFAULT NULL,
+	`display_public`               INT(11)         NOT NULL DEFAULT '1'
+);
+
+CREATE INDEX subreddits__whitelisted_name_index ON subreddits__whitelisted (subreddit_name);
+CREATE INDEX subreddits__whitelisted_whitelist_comment_name_index ON subreddits__whitelisted (whitelist_comment_name);
+CREATE INDEX subreddits__whitelisted_whitelist_requested_by_mod_index ON subreddits__whitelisted (whitelist_requested_by_mod);
+CREATE INDEX subreddits__whitelisted_whitelist_timestamp_index ON subreddits__whitelisted (whitelist_timestamp);
+CREATE INDEX subreddits__whitelisted_unwhitelist_index ON subreddits__whitelisted (unwhitelist);
+CREATE INDEX subreddits__whitelisted_unwhitelist_comment_name_index ON subreddits__whitelisted (unwhitelist_comment_name);
+CREATE INDEX subreddits__whitelisted_unwhitelist_requested_by_mod_index ON subreddits__whitelisted (unwhitelist_requested_by_mod);
+CREATE INDEX subreddits__whitelisted_unwhitelist_timestamp_index ON subreddits__whitelisted (unwhitelist_timestamp);
+CREATE INDEX subreddits__whitelisted_display_public_index ON subreddits__whitelisted (display_public);
 
 # Statistics views
 
