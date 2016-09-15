@@ -7,6 +7,22 @@ This bot uses the PHP reddit API wrapper [halfpastfour/phpreddit](https://github
 
 ----
 
+# Features
+
+- __Flip coins__
+Users can ask the bot to flip a coin (`+/u/coinflipbot` by default) and it will reply with the result.
+- __Ban and unban by moderator request__
+Moderators can tell the bot to ban itself from a subreddit with a comment. The bot will no longer post any automated replies in the subreddit until unbanned again.
+This way a moderator doesn't have to ban the account from the subreddit.
+- __Whitelist and unwhitelist by moderator request__
+The bot listens to moderators telling it in a comment to whitelist or unwhitelist itself from their subreddit. When whitelisted the bot can respond to alternate flip commands.
+- __Configurable triggers and responses__
+Every trigger string is configurable. If the string is present in a comment, an action will be performed.
+Any response from the botis configurable as well as the footer it appends to its replies.
+
+
+----
+
 # Installation, configuration and running the bot
 A quick guide to installing and running the bot.
 
