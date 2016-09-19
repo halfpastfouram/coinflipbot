@@ -357,7 +357,7 @@ class Coinflipbot implements Bot
 			}
 
 			foreach( $needles as $needle ) {
-				if( strpos( $comment['body'], strval( $needle ) ) !== false ) {
+				if( stripos( $comment['body'], strval( $needle ) ) !== false ) {
 					$hits[] = $commentData;
 					$hit    = 1;
 					break;
