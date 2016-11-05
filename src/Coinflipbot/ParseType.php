@@ -22,38 +22,15 @@
 namespace Coinflipbot;
 
 /**
- * Class Autoload
+ * Class ParseType
  * @package Coinflipbot
  */
-class Autoload
+final class ParseType
 {
-	/**
-	 * The basepath to look in for files.
-	 *
-	 * @var string
-	 */
-	private static $basePath;
-
-	/**
-	 * Register the autoloader.
-	 *
-	 * @param string $basePath
-	 */
-	public static function register( string $basePath = __DIR__ )
-	{
-		self::$basePath = rtrim( $basePath, '/' ) . '/';
-		spl_autoload_register( self::class . '::load' );
-	}
-
-	/**
-	 * Try and load a class.
-	 *
-	 * @param string $class
-	 */
-	public static function load( string $class )
-	{
-		$parts     = explode( '\\', $class );
-		$className = array_pop( $parts );
-		require self::$basePath . implode( '/', $parts ) . "/{$className}.php";
-	}
+	const FLIP             = 1;
+	const BAN              = 2;
+	const UNBAN            = 4;
+	const WHITELIST        = 8;
+	const UNWHITELIST      = 16;
+	const WHITELISTED_FLIP = 32;
 }

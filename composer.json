@@ -1,12 +1,13 @@
 {
-  "name": "halfpastfour.am/coinflipbot",
+  "name": "halfpastfouram/coinflipbot",
   "description": "/u/coinflipbot source code",
   "keywords": [
     "halfpastfour",
+    "halfpastfouram",
     "coinflipbot"
   ],
 
-  "license": "GPLv2",
+  "license": "AGPLv2",
   "authors": [
     {
       "name": "/u/supersniperguy",
