@@ -87,6 +87,18 @@ class Comment implements CommentInterface
 	}
 
 	/**
+	 * @return array
+	 */
+	public function findLastParsed() : array
+	{
+		$statement	= new Sql( $this->dbAdapter );
+		$select	= $statement->select()->from( 'comments__parsed' )->order( 'id DESC' )->limit( 1 );
+		$result	= $statement->prepareStatementForSqlObject( $select )->execute();
+
+		return $result->current() ?: [];
+	}
+
+	/**
 	 * @param array $data
 	 *
 	 * @return \Coinflipbot\Mapper\CommentInterface

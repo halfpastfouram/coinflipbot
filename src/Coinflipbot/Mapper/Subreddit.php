@@ -22,6 +22,7 @@
 namespace Coinflipbot\Mapper;
 
 use Zend\Db\Adapter\Adapter;
+use Zend\Db\Sql\Sql;
 
 /**
  * Class Subreddit
@@ -58,12 +59,27 @@ class Subreddit implements SubredditInterface
 
 	/**
 	 * @param string $subredditName
+	 * @param int    $timestamp
 	 *
 	 * @return array
 	 */
-	public function findIgnoredByName( string $subredditName ) : array
+	public function findIgnoredByName( string $subredditName, int $timestamp = null ) : array
 	{
-		// TODO: Implement findIgnoredByName() method.
+		$statement	= new Sql( $this->dbAdapter );
+		$parameters	= [ ':subreddit_name' => strval( $subredditName ) ];
+		$select		= $statement->select()->from( 'subreddits__ignored' )
+			->where( 'subreddit_name = :subreddit_name' );
+
+		if( $timestamp ) {
+			$parameters[ ':timestamp' ] = $timestamp;
+			$select->where( 'whitelist_timestamp <= :timestamp' );
+		} else {
+			$select->where( 'unban IS NULL' );
+		}
+
+		$result = $statement->prepareStatementForSqlObject( $select )->execute( $parameters );
+
+		return $result->current() ?: [];
 	}
 
 	/**
@@ -88,12 +104,27 @@ class Subreddit implements SubredditInterface
 
 	/**
 	 * @param string $subredditName
+	 * @param int    $timestamp
 	 *
 	 * @return array
 	 */
-	public function findWhitelistedByName( string $subredditName ) : array
+	public function findWhitelistedByName( string $subredditName, int $timestamp = null ) : array
 	{
-		// TODO: Implement findWhitelistedByName() method.
+		$statement	= new Sql( $this->dbAdapter );
+		$parameters	= [ ':subreddit_name' => strval( $subredditName ) ];
+		$select		= $statement->select()->from( 'subreddits__whitelisted' )
+			->where( 'subreddit_name = :subreddit_name' );
+
+		if( $timestamp ) {
+			$parameters[ ':timestamp' ] = $timestamp;
+			$select->where( 'whitelist_timestamp <= :timestamp' );
+		} else {
+			$select->where( 'unwhitelist IS NULL' );
+		}
+
+		$result = $statement->prepareStatementForSqlObject( $select )->execute( $parameters );
+
+		return $result->current() ?: [];
 	}
 
 	/**
@@ -113,6 +144,35 @@ class Subreddit implements SubredditInterface
 	 */
 	public function saveWhitelisted( array $data ) : SubredditInterface
 	{
-		// TODO: Implement saveWhitelisted() method.
+		$subreddit	= $this->findWhitelistedByName( $data['subreddit'] );
+
+		if( !$subreddit || !array_key_exists( 'unwhitelist', $data ) || !$data['unwhitelist'] ) {
+			$sql          = new Sql( $this->dbAdapter );
+			$insert       = $sql->insert( 'subreddits__whitelisted' )
+				->values( [
+					'subreddit_name'             => $data['subreddit'],
+					'whitelist_comment_name'     => $data['name'],
+					'whitelist_requested_by_mod' => $data['author'],
+					'whitelist_timestamp'        => $data['whitelist_timestamp'],
+					'display_public'             => $data['display_public'],
+				] );
+			$selectString = $sql->buildSqlString( $insert );
+			$this->dbAdapter->query( $selectString, Adapter::QUERY_MODE_EXECUTE );
+		} else {
+			$sql	= new Sql( $this->dbAdapter );
+			$update	= $sql->update( 'subreddits__whitelisted' )
+				->set( [
+					'unwhitelist'                  => 1,
+					'unwhitelist_comment_name'     => $data['name'],
+					'unwhitelist_requested_by_mod' => $data['author'],
+					'unwhitelist_timestamp'        => $data['unwhitelist_timestamp'],
+				] )->where( [
+					'subreddit' => $subreddit['subreddit_name'],
+				] );
+			$selectString	= $sql->buildSqlString( $update );
+			$this->dbAdapter->query( $selectString, Adapter::QUERY_MODE_EXECUTE );
+		}
+
+		return $this;
 	}
 }

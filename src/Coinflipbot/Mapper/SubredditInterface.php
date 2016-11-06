@@ -36,10 +36,11 @@ interface SubredditInterface
 
 	/**
 	 * @param string $subredditName
+	 * @param int    $timestamp
 	 *
 	 * @return array
 	 */
-	public function findIgnoredByName( string $subredditName ) : array;
+	public function findIgnoredByName( string $subredditName, int $timestamp = null ) : array;
 
 	/**
 	 * @param array $data
@@ -57,10 +58,11 @@ interface SubredditInterface
 
 	/**
 	 * @param string $subredditName
+	 * @param int    $timestamp
 	 *
 	 * @return array
 	 */
-	public function findWhitelistedByName( string $subredditName ) : array;
+	public function findWhitelistedByName( string $subredditName, int $timestamp = null ) : array;
 
 	/**
 	 * @param string $commentName

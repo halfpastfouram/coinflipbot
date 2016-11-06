@@ -27,7 +27,6 @@ use Coinflipbot\Service\Subreddit;
 use Doctrine\Instantiator\Exception\InvalidArgumentException;
 use Halfpastfour\Reddit\Reddit;
 use Zend\Config\Config;
-use Zend\Db\Adapter\Adapter;
 use Zend\Db\Sql\Sql;
 
 /**
@@ -181,18 +180,18 @@ class Coinflipbot
 				&& $comment['data']['author'] != $this->config->reddit->account->username
 			) {
 				print( "Replying to {$comment['data']['name']}\n" );
-				$this->flipAndReply( self::THING_COMMENT, $comment, $comment['data']['user'] );
+				$this->flipAndReply( self::THING_COMMENT, $comment, $comment['data']['author'] );
 			}
 		}
 
 		// Look for flip triggers
 		print( "Looking for flip triggers.\n" );
 		foreach( $this->searchComments( $comments, $trigger->flip->toArray(), ParseType::FLIP ) as $comment ) {
-			if( !$this->hasReplied( self::THING_COMMENT, $comment )
+			if( !$this->hasReplied( self::THING_COMMENT, $comment['data']['name'] )
 				&& !$this->isBannedFromSubreddit( $comment['data']['subreddit'] )
 			) {
 				print( "Replying to {$comment['data']['name']}\n" );
-				$this->flipAndReply( self::THING_COMMENT, $comment, $comment['data']['user'] );
+				$this->flipAndReply( self::THING_COMMENT, $comment, $comment['data']['author'] );
 			}
 		}
 		return $this;
@@ -235,7 +234,6 @@ class Coinflipbot
 
 		// Unset the reddit client and the database adapter.
 		$this->reddit    = null;
-		$this->dbAdapter = null;
 
 		return $this;
 	}
@@ -247,11 +245,8 @@ class Coinflipbot
 	 */
 	protected function getLastParsedCommentName() : string
 	{
-		$statement	= new Sql( $this->dbAdapter );
-		$select	= $statement->select()->from( 'comments__parsed' )->order( 'id DESC' )->limit( 1 );
-		$result	= $statement->prepareStatementForSqlObject( $select )->execute();
-
-		return $result->count() ? $result->current()['comment_name'] : '';
+		$lastParsed	= $this->commentService->findLastParsed();
+		return $lastParsed ? $lastParsed['comment_name'] : '';
 	}
 
 	/**
@@ -307,53 +302,35 @@ class Coinflipbot
 	/**
 	 * Check if the bot is banned from the subreddit with the given name.
 	 *
-	 * @param string $p_sSubreddit The subreddit to check on.
-	 * @param int    $p_iTimestamp Optional timestamp to compare with
+	 * @param string $subreddit The subreddit to check on.
+	 * @param int    $timestamp Optional timestamp to compare with
 	 *
 	 * @return bool
 	 */
-	protected function isBannedFromSubreddit( $p_sSubreddit , $p_iTimestamp = null )
+	protected function isBannedFromSubreddit( string $subreddit , int $timestamp = null )
 	{
-		$statement	= new Sql( $this->dbAdapter );
-		$parameters	= [ ':subreddit_name' => strval( $p_sSubreddit ) ];
-		$select		= $statement->select()->from( 'subreddits__ignored' )
-			->where( 'subreddit_name = :subreddit_name' )
-			->where( 'unban IS NULL' );
+		$result	= $this->subredditService->findIgnoredByName( $subreddit );
 
-		if( $p_iTimestamp ) {
-			$parameters[ ':timestamp' ] = intval( $p_iTimestamp );
-			$select->where( 'ban_timestamp <= :timestamp' );
-		}
-
-		$result = $statement->prepareStatementForSqlObject( $select )->execute( $parameters );
-
-		return $result->count() > 0;
+		return $result
+			? $result['unban'] != 0 && ( is_null( $timestamp ) || $result['ban_timestamp'] <= $timestamp )
+			: false;
 	}
 
 	/**
 	 * Check if the bot is white listed in the subreddit with the given name.
 	 *
-	 * @param string $subreddit    The subreddit to check on.
-	 * @param int    $p_iTimestamp Optional timestamp to compare with
+	 * @param string $subreddit The subreddit to check on.
+	 * @param int    $timestamp Optional timestamp to compare with
 	 *
 	 * @return bool
 	 */
-	protected function isWhitelistedInSubreddit( string $subreddit , int $p_iTimestamp = null ) : bool
+	protected function isWhitelistedInSubreddit( string $subreddit , int $timestamp = null ) : bool
 	{
-		$statement	= new Sql( $this->dbAdapter );
-		$parameters	= [ ':subreddit_name' => strval( $subreddit ) ];
-		$select		= $statement->select()->from( 'subreddits__whitelisted' )
-			->where( 'subreddit_name = :subreddit_name' )
-			->where( 'unwhitelist IS NULL' );
+		$result	= $this->subredditService->findWhitelistedByName( $subreddit );
 
-		if( $p_iTimestamp ) {
-			$parameters[ ':timestamp' ] = intval( $p_iTimestamp );
-			$select->where( 'whitelist_timestamp <= :timestamp' );
-		}
-
-		$result = $statement->prepareStatementForSqlObject( $select )->execute( $parameters );
-
-		return $result->count() > 0;
+		return $result
+			? $result['unban'] != 0 && ( is_null( $timestamp ) || $result['ban_timestamp'] <= $timestamp )
+			: false;
 	}
 
 	/**
@@ -499,7 +476,7 @@ class Coinflipbot
 	}
 
 	/**
-	 * Check if the bot has already replied to the given comment.
+	 * Check if the bot has already replied to the given thing.
 	 *
 	 * @param int    $thing The thing to check on.
 	 * @param string $name  The name to check on.
@@ -508,13 +485,16 @@ class Coinflipbot
 	 */
 	protected function hasReplied( int $thing, string $name ) : bool
 	{
-		$statement = new Sql( $this->dbAdapter );
-		list( $table, $column ) = $this->getTableAndColumnForThing( $thing );
-
-		$select = $statement->select()->from( "{$table}__replied" )->where( "{$column}_name = :thing_name" );
-		$result = $statement->prepareStatementForSqlObject( $select )->execute( [ ':thing_name' => strval( $name ) ] );
-
-		return $result->count() > 0;
+		switch( $thing ) {
+			case self::THING_COMMENT:
+				return !!$this->commentService->findRepliedByName( $name );
+				break;
+			case self::THING_MESSAGE:
+				return !!$this->messageService->findRepliedByName( $name );
+				break;
+			default:
+				throw new InvalidArgumentException( 'Invalid thing identifier given' );
+		}
 	}
 
 	/**
@@ -536,23 +516,19 @@ class Coinflipbot
 		$p_bWhitelist		= null,
 		$p_sMessage
 	) : Coinflipbot {
-		$sql	= new Sql( $this->dbAdapter );
-		$insert	= $sql->insert( 'comments__replied' )
-			->values( [
-				'comment_name'		=> $p_aComment['data']['name'],
-				'timestamp'			=> time(),
-				'flip'				=> !is_null( $p_iFlip ) ? intval( $p_iFlip ) : null,
-				'ban'				=> !is_null( $p_bBan ) ? intval( $p_bBan ) : null,
-				'whitelist'			=> !is_null( $p_bWhitelist ) ? intval( $p_bWhitelist ) : null,
-				'user'				=> $p_aComment['data']['author'],
-				'subreddit_name'	=> $p_aComment['data']['subreddit'],
-				'post_name'			=> $p_aComment['data']['link_id'],
-				'post_title'		=> $p_aComment['data']['link_title'],
-				'url'				=> $p_aComment['data']['link_url'],
-				'reply'				=> strval( $p_sMessage ),
-			] );
-		$selectString	= $sql->buildSqlString( $insert );
-		$this->dbAdapter->query( $selectString, Adapter::QUERY_MODE_EXECUTE );
+		$this->commentService->saveReplied( [
+			'comment_name'		=> $p_aComment['data']['name'],
+			'timestamp'			=> time(),
+			'flip'				=> !is_null( $p_iFlip ) ? intval( $p_iFlip ) : null,
+			'ban'				=> !is_null( $p_bBan ) ? intval( $p_bBan ) : null,
+			'whitelist'			=> !is_null( $p_bWhitelist ) ? intval( $p_bWhitelist ) : null,
+			'user'				=> $p_aComment['data']['author'],
+			'subreddit_name'	=> $p_aComment['data']['subreddit'],
+			'post_name'			=> $p_aComment['data']['link_id'],
+			'post_title'		=> $p_aComment['data']['link_title'],
+			'url'				=> $p_aComment['data']['link_url'],
+			'reply'				=> strval( $p_sMessage ),
+		] );
 
 		return $this;
 	}
@@ -573,22 +549,18 @@ class Coinflipbot
 		$p_bBan				= null,
 		$p_sMessage
 	) : Coinflipbot {
-		$sql	= new Sql( $this->dbAdapter );
-		$insert	= $sql->insert( 'messages__replied' )
-			->values( [
-				'message_name'		=> $p_aMessage['data']['name'],
-				'timestamp'			=> time(),
-				'flip'				=> !is_null( $p_iFlip ) ? intval( $p_iFlip ) : null,
-				'ban'				=> !is_null( $p_bBan ) ? intval( $p_bBan ) : null,
-				'user'				=> $p_aMessage['data']['author'],
-				'subreddit_name'	=> $p_aMessage['data']['subreddit'],
-				'post_name'			=> $p_aMessage['data']['link_id'],
-				'post_title'		=> $p_aMessage['data']['link_title'],
-				'url'				=> $p_aMessage['data']['link_url'],
-				'reply'				=> strval( $p_sMessage ),
-			] );
-		$selectString	= $sql->buildSqlString( $insert );
-		$this->dbAdapter->query( $selectString, Adapter::QUERY_MODE_EXECUTE );
+		$this->messageService->saveReplied( [
+			'message_name'		=> $p_aMessage['data']['name'],
+			'timestamp'			=> time(),
+			'flip'				=> !is_null( $p_iFlip ) ? intval( $p_iFlip ) : null,
+			'ban'				=> !is_null( $p_bBan ) ? intval( $p_bBan ) : null,
+			'user'				=> $p_aMessage['data']['author'],
+			'subreddit_name'	=> $p_aMessage['data']['subreddit'],
+			'post_name'			=> $p_aMessage['data']['link_id'],
+			'post_title'		=> $p_aMessage['data']['link_title'],
+			'url'				=> $p_aMessage['data']['link_url'],
+			'reply'				=> strval( $p_sMessage ),
+		] );
 
 		return $this;
 	}
@@ -650,17 +622,13 @@ class Coinflipbot
 		string $user,
 		$p_bDisplayPublic = true
 	) : Coinflipbot {
-		$sql	= new Sql( $this->dbAdapter );
-		$insert	= $sql->insert( 'subreddits__ignored' )
-			->values( [
-				'subreddit_name'		=> $subreddit,
-				'ban_thing_name'		=> $thingName,
-				'ban_requested_by_mod'	=> $user ?: null,
-				'ban_timestamp'			=> time(),
-				'display_public'		=> intval( $p_bDisplayPublic ),
-			] );
-		$selectString	= $sql->buildSqlString( $insert );
-		$this->dbAdapter->query( $selectString, Adapter::QUERY_MODE_EXECUTE );
+		$this->subredditService->saveIgnored( [
+			'subreddit_name'		=> $subreddit,
+			'ban_thing_name'		=> $thingName,
+			'ban_requested_by_mod'	=> $user ?: null,
+			'ban_timestamp'			=> time(),
+			'display_public'		=> intval( $p_bDisplayPublic ),
+		] );
 
 		return $this;
 	}
@@ -676,16 +644,13 @@ class Coinflipbot
 	 */
 	protected function unbanFromSubreddit( string $subreddit, string $thingName, string $user ) : Coinflipbot
 	{
-		$sql	= new Sql( $this->dbAdapter );
-		$update	= $sql->update( 'subreddits__ignored' )
-			->set( [
-				'unban'                  => 1,
-				'unban_thing_name'       => $thingName,
-				'unban_requested_by_mod' => $user,
-				'unban_timestamp'        => time(),
-			] )->where( [ "subreddit_name" => $subreddit ] );
-		$selectString	= $sql->buildSqlString( $update );
-		$this->dbAdapter->query( $selectString, Adapter::QUERY_MODE_EXECUTE );
+		$this->subredditService->saveIgnored( [
+			'subreddit_name'         => $subreddit,
+			'unban'                  => 1,
+			'unban_thing_name'       => $thingName,
+			'unban_requested_by_mod' => $user,
+			'unban_timestamp'        => time(),
+		] );
 
 		return $this;
 	}
@@ -701,17 +666,13 @@ class Coinflipbot
 	 */
 	protected function whitelistSubreddit( array $p_aComment, $p_bDisplayPublic = true )
 	{
-		$sql	= new Sql( $this->dbAdapter );
-		$insert	= $sql->insert( 'subreddits__whitelisted' )
-			->values( [
-				'subreddit_name'             => $p_aComment['data']['subreddit'],
-				'whitelist_comment_name'     => $p_aComment['data']['name'],
-				'whitelist_requested_by_mod' => $p_aComment['data']['author'],
-				'whitelist_timestamp'        => time(),
-				'display_public'             => intval( $p_bDisplayPublic ),
-			] );
-		$selectString	= $sql->buildSqlString( $insert );
-		$this->dbAdapter->query( $selectString, Adapter::QUERY_MODE_EXECUTE );
+		$this->subredditService->saveWhitelisted( [
+			'subreddit_name'             => $p_aComment['data']['subreddit'],
+			'whitelist_comment_name'     => $p_aComment['data']['name'],
+			'whitelist_requested_by_mod' => $p_aComment['data']['author'],
+			'whitelist_timestamp'        => $p_aComment['data']['whitelist_timestamp'],
+			'display_public'             => intval( $p_bDisplayPublic ),
+		] );
 
 		return $this;
 	}
@@ -725,18 +686,12 @@ class Coinflipbot
 	 */
 	protected function unwhitelistSubreddit( array $p_aComment )
 	{
-		$sql	= new Sql( $this->dbAdapter );
-		$update	= $sql->update( 'subreddits__whitelisted' )
-			->set( [
-				'unwhitelist'                  => 1,
-				'unwhitelist_comment_name'     => $p_aComment['data']['name'],
-				'unwhitelist_requested_by_mod' => $p_aComment['data']['author'],
-				'unwhitelist_timestamp'        => time(),
-			] )->where( [
-				'subreddit' => $p_aComment['data']['subreddit'],
-			] );
-		$selectString	= $sql->buildSqlString( $update );
-		$this->dbAdapter->query( $selectString, Adapter::QUERY_MODE_EXECUTE );
+		$this->subredditService->saveWhitelisted( [
+			'unwhitelist'                  => 1,
+			'unwhitelist_comment_name'     => $p_aComment['data']['name'],
+			'unwhitelist_requested_by_mod' => $p_aComment['data']['author'],
+			'unwhitelist_timestamp'        => time(),
+		] );
 
 		return $this;
 	}

@@ -44,6 +44,11 @@ interface CommentInterface
 	public function findParsedByName( string $name, int $parseType ) : array;
 
 	/**
+	 * @return array
+	 */
+	public function findLastParsed() : array;
+
+	/**
 	 * @param array $data
 	 *
 	 * @return \Coinflipbot\Mapper\CommentInterface
