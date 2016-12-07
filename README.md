@@ -1,3 +1,5 @@
+![TeamCity build status](http://halfpastfour.am:8111/app/rest/builds/buildType:(id:Coinflipbot_UnitTesting)/statusIcon)
+
 # /u/coinflipbot
 Version alpha-1.11
 
