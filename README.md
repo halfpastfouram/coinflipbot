@@ -34,7 +34,7 @@ To install:
 -
 ```bash
 git clone https://github.com/halfpastfouram/coinflipbot.git
-cd coinflipbot && composer install
+cd coinflipbot && npm install
 cat database.sql | mysql -p
 cd src && cp config.js.dist config.js
 ```
