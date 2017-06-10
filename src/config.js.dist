@@ -10,6 +10,32 @@ class Config {
         this.verbose = false;
 
         /**
+         * Supported process arguments
+         * @type {{}}
+         */
+        this.argumentMap = {
+            '--help': (config) => {
+                console.log('Supported arguments:');
+                Object.keys(config.argumentMap).forEach((argument) => {
+                    console.log(argument);
+                });
+
+                //noinspection JSUnresolvedVariable
+                process.exit();
+            },
+            '--verbose': (config) => {
+                config.verbose = true;
+            },
+            '--version': () => {
+                let packageInfo = JSON.parse(fs.readFileSync('./package.json'));
+                console.log(`${packageInfo.name} version ${packageInfo.version}`);
+
+                //noinspection JSUnresolvedVariable
+                process.exit();
+            }
+        };
+
+        /**
          * Snoowrap configuration parameters.
          * @see https://not-an-aardvark.github.io/snoowrap/snoowrap.html
          */

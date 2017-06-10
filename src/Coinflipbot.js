@@ -2,16 +2,18 @@
 /*jshint sub:true*/
 'use strict';
 
-const snoowrap = require('snoowrap');
-const mapper = require('./Mapper/MysqlMapper.js');
-const Parser = require('./Parser.js');
-const ActionDelegate = require('./ActionDelegate.js');
+const snoowrap       = require('snoowrap');
+const mapper         = require('./Mapper/MysqlMapper.js');
+const Parser         = require('./Parser.js');
+const ActionDelegate = require('./Model/ActionDelegate.js');
 
-class Coinflipbot {
+class Coinflipbot
+{
     /**
      * @param {Config} config
      */
-    constructor(config) {
+    constructor(config)
+    {
         this.config = config;
         this.mapper = new mapper(this.config);
         this.connect();
@@ -26,23 +28,25 @@ class Coinflipbot {
      *  flip: number, ban: number, unban: number, whitelist: number, unwhitelist: number, whitelistFlip: number
      * }}
      */
-    static get parseTypes() {
+    static get parseTypes()
+    {
         return {
             ban: 2,
             unban: 4,
             whitelist: 8,
             unwhitelist: 16,
             flip: 1,
-            whitelistFlip: 32,
+            whitelistFlip: 32
         };
     }
 
     /**
      * Start a new instance of snoowrap and connect to the reddit API.
      */
-    connect() {
+    connect()
+    {
         if (this.config.verbose) {
-            console.log("Creating snoowrap instance.");
+            console.log('Creating snoowrap instance.');
         }
         this.snoowrapInstance = new snoowrap(this.config.snoowrap);
     }
@@ -54,12 +58,14 @@ class Coinflipbot {
      * @param {string} parseType
      * @param {function} callback
      */
-    parseComment(comment, parseType, callback) {
+    parseComment(comment, parseType, callback)
+    {
         if (!parseType) {
             throw new Error('No parse type provided!');
         }
 
-        this.mapper.hasProcessedComment(comment, Coinflipbot.parseTypes[parseType], (hasProcessed) => {
+        this.mapper.hasProcessedComment(comment, Coinflipbot.parseTypes[parseType], (hasProcessed) =>
+        {
             if (hasProcessed) {
                 if (this.config.verbose) {
                     console.log(`Comment ${comment.name} was already processed for type ${parseType}.`);
@@ -85,7 +91,8 @@ class Coinflipbot {
      * @param {object} thing
      * @param {function} callback
      */
-    performActionForParseType(parseType, thing, callback) {
+    performActionForParseType(parseType, thing, callback)
+    {
         if (!parseType) {
             throw new Error('No parse type provided');
         }
@@ -101,22 +108,27 @@ class Coinflipbot {
     /**
      * Parse the latest comments
      */
-    parseComments(callback) {
-        let subreddit     = this.snoowrapInstance.getSubreddit(this.config.subreddit);
+    parseComments(callback)
+    {
+        let subreddit = this.snoowrapInstance.getSubreddit(this.config.subreddit);
 
         console.info(`Requesting ${this.config.commentParser.limit} comments from ${this.config.subreddit}`);
-        subreddit.getNewComments(this.config.commentParser).then((listing) => {
+        subreddit.getNewComments(this.config.commentParser).then((listing) =>
+        {
 
             if (listing.length) {
-                let listingLength = listing.length;
+                let listingLength     = listing.length;
                 let processedComments = 0;
                 console.info(`Parsing ${listing.length} comments`);
 
-                listing.forEach((comment) => {
+                listing.forEach((comment) =>
+                {
                     // Try and parse the comment for each given parse type
-                    Object.keys(Coinflipbot.parseTypes).forEach((parseType) => {
+                    Object.keys(Coinflipbot.parseTypes).forEach((parseType) =>
+                    {
                         // Parse the comment for the current parse type
-                        this.parseComment(comment, parseType, (success, result) => {
+                        this.parseComment(comment, parseType, (success, result) =>
+                        {
                             if (success) {
                                 // Mark comment as processed
                                 if (this.config.verbose) {
@@ -131,7 +143,8 @@ class Coinflipbot {
                                 );
 
                                 if (result) {
-                                    this.performActionForParseType(parseType, comment, (success, result) => {
+                                    this.performActionForParseType(parseType, comment, (success, result) =>
+                                    {
                                         if (this.config.verbose) {
                                             if (success && result) {
                                                 console.log(`Successfully handled ${comment.name}`);

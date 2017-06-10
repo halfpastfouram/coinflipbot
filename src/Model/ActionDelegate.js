@@ -2,7 +2,7 @@
 /*jshint sub:true*/
 'use strict';
 
-const Message = require('./Model/Message.js');
+const Message = require('./Message.js');
 
 class ActionDelegate {
     constructor(config, parseType) {
