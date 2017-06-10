@@ -1,0 +1,11 @@
+{
+  "name": "coinflipbot.js",
+  "version": "2.0.0-alpha",
+  "private": true,
+  "scripts": {},
+  "dependencies": {
+    "snoowrap": "^1.13.0",
+    "redis": "^2.7.1",
+    "mysql": "2.13.0"
+  }
+}

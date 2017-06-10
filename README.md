@@ -1,11 +1,9 @@
-![TeamCity build status](http://halfpastfour.am:8111/app/rest/builds/buildType:(id:Coinflipbot_UnitTesting)/statusIcon)
-
 # /u/coinflipbot
-Version alpha-1.11
+Version alpha-2.0
 
 This is [/u/coinflipbot](https://reddit.com/u/coinflipbot), a bot that flips coins on [reddit](https://reddit.com). For more information see [/r/coinflipbot](https://reddit.com/r/coinflipbot).
 
-This bot uses the PHP reddit API wrapper [halfpastfour/phpreddit](https://github.com/halfpastfouram/phpreddit).
+This bot uses the reddit API wrapper [snoowrap](https://not-an-aardvark.github.io/snoowrap/index.html).
 
 ----
 
@@ -34,19 +32,19 @@ To install:
 git clone https://github.com/halfpastfouram/coinflipbot.git
 cd coinflipbot && composer install
 cat database.sql | mysql -p
-cd src && cp config.sample.ini config.ini
+cd src && cp config.js.dist config.js
 ```
-Don't forget to edit `config.ini`! The bot can't run with an empty configuration file. 
+Don't forget to edit `config.js`! The bot can't run with an empty configuration file.
 
 To run:
 -
-`php coinflipbot.php`
+`node bot.js`
 
 The actual /u/coinflipbot is ran by a cronjob on a VPS every 60 seconds.
 
 Requirements:
 -
-- php >=7.0.0
+- node js
 - mysql >=5.6
 
 

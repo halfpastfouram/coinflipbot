@@ -1,9 +1,2 @@
-# Created by .ignore support plugin (hsz.mobi)
-### Composer template
-composer.phar
 .idea/
-/vendor/
-config.ini
-reddit.token
-composer.lock
-/docs/phpdoc-cache-*/
+config.js

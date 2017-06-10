@@ -1,0 +1,46 @@
+/*jshint esversion: 6 */
+'use strict';
+
+class Config {
+    constructor() {
+        /**
+         * Snoowrap configuration parameters.
+         * @see https://not-an-aardvark.github.io/snoowrap/snoowrap.html
+         */
+        this.snoowrap = {
+            userAgent: '/u/coinflipbot Node JS bot v0.0.0',
+            clientId: '',
+            clientSecret: '',
+            username: 'coinflipbot',
+            password: ''
+        };
+
+        /**
+         * Subreddit to parse comments from.
+         * @type {string}
+         */
+        this.subreddit = 'all';
+
+        /**
+         * Options for comment parser listings.
+         * @see https://not-an-aardvark.github.io/snoowrap/Listing.html
+         * @type {{amount: number}}
+         */
+        this.commentParser = {
+            amount: 100
+        };
+
+        /**
+         * MySQL connection details
+         * @type {{host: string, user: string, password: string, database: string}}
+         */
+        this.mysql = {
+            host: 'localhost',
+            user: '',
+            password: '',
+            database: 'coinflipbot'
+        };
+    }
+}
+
+module.exports = Config;
