@@ -41,6 +41,9 @@ class Coinflipbot {
      * Start a new instance of snoowrap and connect to the reddit API.
      */
     connect() {
+        if (this.config.verbose) {
+            console.log("Creating snoowrap instance.");
+        }
         this.snoowrapInstance = new snoowrap(this.config.snoowrap);
     }
 
@@ -58,9 +61,16 @@ class Coinflipbot {
 
         this.mapper.hasProcessedComment(comment, Coinflipbot.parseTypes[parseType], (hasProcessed) => {
             if (hasProcessed) {
+                if (this.config.verbose) {
+                    console.log(`Comment ${comment.name} was already processed for type ${parseType}.`);
+                }
                 // Apply the callback, tell them that success = false, because comment was already processed.
                 callback.apply(this, [false, false]);
             } else {
+                if (this.config.verbose) {
+                    console.log(`Going to test comment ${comment.name} for type ${parseType}.`);
+                }
+
                 // Delegate parsing to the actual parser object.
                 let parser = new Parser(this.config, parseType);
                 parser.parse(comment, callback);
@@ -78,6 +88,10 @@ class Coinflipbot {
     performActionForParseType(parseType, thing, callback) {
         if (!parseType) {
             throw new Error('No parse type provided');
+        }
+
+        if (this.config.verbose) {
+            console.log(`Going to perform action on thing ${thing.name} for type ${parseType}.`);
         }
 
         let actionDelegate = new ActionDelegate(this.config, parseType);
@@ -105,7 +119,11 @@ class Coinflipbot {
                         this.parseComment(comment, parseType, (success, result) => {
                             if (success) {
                                 // Mark comment as processed
-                                console.info(`Marking comment ${comment.id} as processed for parse type ${parseType}.`);
+                                if (this.config.verbose) {
+                                    console.log(
+                                        `Marking comment ${comment.id} as processed for parse type ${parseType}.`
+                                    );
+                                }
                                 this.mapper.markCommentProcessed(
                                     comment,
                                     Coinflipbot.parseTypes[parseType],
@@ -114,12 +132,14 @@ class Coinflipbot {
 
                                 if (result) {
                                     this.performActionForParseType(parseType, comment, (success, result) => {
-                                        if (success && result) {
-                                            console.log(`Successfully handled ${comment.name}`);
-                                        } else if (!success) {
-                                            console.log(`Unable to handle ${comment.name}`);
-                                        } else {
-                                            console.log(`Something went wrong handling ${comment.name}`);
+                                        if (this.config.verbose) {
+                                            if (success && result) {
+                                                console.log(`Successfully handled ${comment.name}`);
+                                            } else if (!success) {
+                                                console.log(`Unable to handle ${comment.name}`);
+                                            } else {
+                                                console.log(`Something went wrong handling ${comment.name}`);
+                                            }
                                         }
                                     });
                                 }
@@ -131,12 +151,21 @@ class Coinflipbot {
                             // If the amount of parsed comments equals the listing's length then apply the callback,
                             // letting the callee know the parsing process has been completed.
                             if (processedComments === listingLength && callback) {
+                                if (this.config.verbose) {
+                                    console.log(
+                                        `${processedComments} out of ${listingLength} comments parsed. \
+                                        Triggering callback.`
+                                    );
+                                }
                                 callback.apply();
                             }
                         });
                     });
                 });
             } else {
+                if (this.config.verbose) {
+                    console.log(`No comments to parse.`);
+                }
                 // Let the callee know the parsing process has been completed.
                 if (callback) {
                     callback.apply();

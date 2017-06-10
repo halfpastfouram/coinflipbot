@@ -4,6 +4,12 @@
 class Config {
     constructor() {
         /**
+         * Enables verbose logging when set to true.
+         * @type {boolean}
+         */
+        this.verbose = false;
+
+        /**
          * Snoowrap configuration parameters.
          * @see https://not-an-aardvark.github.io/snoowrap/snoowrap.html
          */
